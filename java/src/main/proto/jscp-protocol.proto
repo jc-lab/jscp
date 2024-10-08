@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package kr.jclab.jscp.payload;
+option java_multiple_files = true;
+option java_package = "kr.jclab.jscp.payload";
+option java_outer_classname = "JcspPayload";
+option go_package = "github.com/jc-lab/jcsp/go/payload";
+
+enum KeyType {
+  KeyTypeUnknown = 0;
+
+  KeyTypeDHStart = 1;
+  KeyTypeDHX25519 = 2;
+  KeyTypeDHEnd = 100;
+
+  KeyTypeSignatureStart = 101;
+  KeyTypeSignatureEd25519 = 102;
+  KeyTypeSignatureEnd = 200;
+}
+
+enum CryptoAlgorithm {
+  CryptoAlgorithmUnknown = 0;
+  CryptoAlgorithmAes = 1;
+}
+
+message PublicKey {
+  KeyType key_type = 1;
+  bytes   data = 2;
+}
+
+message ClientHelloSigned {
+  PublicKey ephemeral_key = 1;
+  bytes     additional = 3;
+}
+
+message ClientHello {
+  int32     version = 1;
+  bytes     signed = 2;     // ClientHelloSigned
+  bytes     additional = 3;
+  PublicKey static_key = 4;
+  bytes     signature  = 5;
+}
+
+message UnencryptedServerHello {
+  bytes           signed = 2; // SignedServerHello
+  CryptoAlgorithm crypto_algorithm = 4;
+}
+
+message ServerHelloSigned {
+  PublicKey ephemeral_key = 1;
+  bytes     additional = 2;
+}
+
+message EncryptedServerHello {
+  bytes certificate = 1; // x509 der
+  bytes additional = 2;
+  bytes signature = 3;
+}
+
+enum AlertCode {
+  AlertUnknown = 0;
+}
+
+message Alert {
+  AlertCode code = 1;
+  string    message = 2;
+}
+
+// CryptoAlgorithm-GCM
+message EncryptedMessage {
+  bytes nonce = 2;
+  bytes ciphertext = 4;
+}
+
+message Payload {
+  oneof message {
+    bytes  client_hello = 10;             // ClientHello
+    bytes  unencrypted_server_hello = 11; // UnencryptedServerHello
+    bytes  unencrypted_alert = 12;        // Alert
+  }
+  EncryptedMessage encrypted_message = 20;
+  // server_hello : HKDF(master = ephemeral_master, data = client_hello)
+}
