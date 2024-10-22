@@ -2,12 +2,15 @@ package kr.jclab.jscp
 
 import com.google.protobuf.ByteString
 import kr.jclab.jscp.crypto.CryptoUtils
+import kr.jclab.jscp.crypto.OpKeyPair
 import kr.jclab.jscp.payload.*
 
 open class ServerSecureChannel(
     writer: Writer,
+    private val staticKey: OpKeyPair? = null,
 ) : SecureChannel(
-    writer
+    writer = writer,
+    serverMode = true,
 ) {
     private var clientHello: ClientHello? = null
     private var signedClientHello: ClientHelloSigned? = null
@@ -18,18 +21,28 @@ open class ServerSecureChannel(
         encryptedServerHelloBuilder: EncryptedServerHello.Builder,
     ) {}
 
+    init {
+        handshakeState = HandshakeState.HELLO
+    }
+
     override fun startHandshake() {}
 
-    override fun onMessage(payload: Payload) {
-        when {
+    override fun onMessage(payload: Payload): ReceiveResult {
+        return when {
             payload.hasClientHello() -> {
-                if (this.clientHello != null) {
+                if (handshakeState != HandshakeState.HELLO) {
                     throw IllegalProtocolException()
                 }
+
                 val clientHello = ClientHello.parseFrom(payload.clientHello)
                 val clientHelloHash = CryptoUtils.hashSha256(payload.clientHello.toByteArray())
                 this.clientHello = clientHello
                 this.clientHelloHash = clientHelloHash
+
+                if (!clientHello.signature.isEmpty) {
+                    val clientStaticKey = CryptoUtils.unmarshal(clientHello.staticKey)
+                    clientStaticKey.verify(clientHello.signed.toByteArray(), clientHello.signature.toByteArray())
+                }
 
                 val signedClientHello = ClientHelloSigned.parseFrom(clientHello.signed)
                 this.signedClientHello = signedClientHello
@@ -45,7 +58,7 @@ open class ServerSecureChannel(
                 onClientHello(clientHello)
 
                 val serverHelloSignedBuilder = ServerHelloSigned.newBuilder()
-                    .setEphemeralKey(localEphemeralKey.toPublicKeyProto())
+                    .setEphemeralKey(localEphemeralKey.publicKey.toPublicKeyProto())
                 val encryptedServerHelloBuilder = EncryptedServerHello.newBuilder()
 
                 buildServerHello(
@@ -56,35 +69,45 @@ open class ServerSecureChannel(
                 val serverHelloSignedBytes = serverHelloSignedBuilder.build().toByteString()
 
                 this.staticKey?.let {
-                    encryptedServerHelloBuilder.signature = ByteString.copyFrom(it.sign(serverHelloSignedBytes.toByteArray()))
+                    encryptedServerHelloBuilder.signature = ByteString.copyFrom(it.privateKey.sign(serverHelloSignedBytes.toByteArray()))
                 }
 
-                val unencryptedServerHelloBuilder = UnencryptedServerHello.newBuilder()
+                val encryptedServerHelloBytes = encryptedServerHelloBuilder.build().toByteArray()
+                val encryptedServerHelloHash = CryptoUtils.hashSha256(encryptedServerHelloBytes)
+
+                val unencryptedServerHello = UnencryptedServerHello.newBuilder()
                     .setSigned(serverHelloSignedBytes)
                     .setCryptoAlgorithm(CryptoAlgorithm.CryptoAlgorithmAes)
+                    .build()
+                val unencryptedServerHelloBytes = unencryptedServerHello.toByteArray()
+                val unencryptedServerHelloHash = CryptoUtils.hashSha256(unencryptedServerHelloBytes)
 
-                val encryptKey = generateServerHelloKey()
-                val ciphertext = CryptoUtils.encrypt(unencryptedServerHelloBuilder.cryptoAlgorithm, encryptKey, encryptedServerHelloBuilder.build().toByteArray())
+                val encryptKey = setServerHelloKey()
+                val ciphertext = encrypt(encryptedServerHelloBytes, encryptKey)
 
                 val sendPayload = Payload.newBuilder()
-                    .setUnencryptedServerHello(unencryptedServerHelloBuilder.build().toByteString())
+                    .setUnencryptedServerHello(ByteString.copyFrom(unencryptedServerHelloBytes))
                     .setEncryptedMessage(ciphertext)
                     .build()
 
+                setSessionKey(unencryptedServerHelloHash, encryptedServerHelloHash)
+
+                handshakeState = HandshakeState.SUCCESS
                 writer.write(sendPayload)
+                    .thenAccept {
+                        handshakePromise.complete(null)
+                    }
                     .exceptionally {
                         handshakePromise.completeExceptionally(it)
                         null
                     }
+
+                ReceiveResult()
             }
             payload.hasUnencryptedServerHello() -> {
                 throw IllegalProtocolException()
             }
-        }
-        if (payload.hasEncryptedMessage()) {
-
+            else -> super.onMessage(payload)
         }
     }
-
-
 }

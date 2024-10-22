@@ -9,13 +9,11 @@ import java.lang.RuntimeException
 open class ClientSecureChannel(
     writer: Writer,
     private val ephemeralKeyType: KeyType = KeyType.KeyTypeDHX25519,
-    staticKey: OpKeyPair? = null,
+    private val staticKey: OpKeyPair? = null,
 ) : SecureChannel(
-    writer,
-    staticKey,
+    writer = writer,
+    serverMode = false,
 ) {
-    private var unencryptedServerHello: UnencryptedServerHello? = null
-
     init {
         if (ephemeralKeyType.number <= KeyType.KeyTypeDHStart.number || ephemeralKeyType.number >= KeyType.KeyTypeDHEnd.number) {
             throw RuntimeException("illegal ephemeralKeyType: ${ephemeralKeyType}")
@@ -41,7 +39,7 @@ open class ClientSecureChannel(
         this.localEphemeralKey = localEphemeralKey
 
         val signedBuilder = ClientHelloSigned.newBuilder()
-            .setEphemeralKey(localEphemeralKey.toPublicKeyProto())
+            .setEphemeralKey(localEphemeralKey.publicKey.toPublicKeyProto())
 
         val builder = ClientHello.newBuilder()
             .setVersion(1)
@@ -52,8 +50,8 @@ open class ClientSecureChannel(
 
         this.staticKey?.let {
             builder
-                .setStaticKey(it.toPublicKeyProto())
-                .setSignature(ByteString.copyFrom(it.sign(builder.signed.toByteArray())))
+                .setStaticKey(it.publicKey.toPublicKeyProto())
+                .setSignature(ByteString.copyFrom(it.privateKey.sign(builder.signed.toByteArray())))
         }
 
         val clientHelloBytes = builder.build().toByteString()
@@ -62,20 +60,22 @@ open class ClientSecureChannel(
         val sendPayload = Payload.newBuilder()
             .setClientHello(clientHelloBytes)
             .build()
+        this.handshakeState = HandshakeState.HELLO
         writer.write(sendPayload)
     }
 
-    override fun onMessage(payload: Payload) {
-        when {
+    override fun onMessage(payload: Payload): ReceiveResult {
+        return when {
             payload.hasClientHello() -> {
                 throw IllegalProtocolException()
             }
             payload.hasUnencryptedServerHello() -> {
-                if (this.unencryptedServerHello != null) {
+                if (handshakeState != HandshakeState.HELLO) {
                     throw IllegalProtocolException()
                 }
+
                 val unencryptedServerHello = UnencryptedServerHello.parseFrom(payload.unencryptedServerHello)
-                this.unencryptedServerHello = unencryptedServerHello
+                val unencryptedServerHelloHash = CryptoUtils.hashSha256(payload.unencryptedServerHello.toByteArray())
 
                 val serverHelloSigned = ServerHelloSigned.parseFrom(unencryptedServerHello.signed)
 
@@ -85,14 +85,21 @@ open class ClientSecureChannel(
                 val ephemeralMasterKey = localEphemeralKey!!.privateKey.dhAgreement(remoteEphemeralKey)
                 this.ephemeralMasterKey = ephemeralMasterKey
 
-                val encryptKey = generateServerHelloKey()
-                val plaintext = CryptoUtils.decrypt(unencryptedServerHello.cryptoAlgorithm, encryptKey, payload.encryptedMessage)
+                val encryptKey = setServerHelloKey()
+                val encryptedServerHelloBytes = decrypt(payload.encryptedMessage, encryptKey)
+                val encryptedServerHelloHash = CryptoUtils.hashSha256(encryptedServerHelloBytes)
 
-                val encryptedServerHello = EncryptedServerHello.parseFrom(plaintext)
+                val encryptedServerHello = EncryptedServerHello.parseFrom(encryptedServerHelloBytes)
                 onServerHello(unencryptedServerHello, serverHelloSigned, encryptedServerHello)
 
+                setSessionKey(unencryptedServerHelloHash, encryptedServerHelloHash)
+
+                handshakeState = HandshakeState.SUCCESS
                 handshakePromise.complete(null)
+
+                ReceiveResult()
             }
+            else -> super.onMessage(payload)
         }
     }
 }

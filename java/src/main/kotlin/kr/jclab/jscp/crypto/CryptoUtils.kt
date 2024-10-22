@@ -14,6 +14,8 @@ import org.bouncycastle.crypto.generators.HKDFBytesGenerator
 import org.bouncycastle.crypto.generators.X25519KeyPairGenerator
 import org.bouncycastle.crypto.modes.GCMBlockCipher
 import org.bouncycastle.crypto.params.*
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.*
 
 object CryptoUtils {
@@ -25,7 +27,7 @@ object CryptoUtils {
         return out
     }
 
-    fun hkdfSha256(ikm: ByteArray, salt: ByteArray, info: ByteArray, length: Int): ByteArray {
+    fun hkdfSha256(ikm: ByteArray, salt: ByteArray?, info: ByteArray, length: Int): ByteArray {
         val params = HKDFParameters(ikm, salt, info)
         val output = ByteArray(length)
         val generator = HKDFBytesGenerator(SHA256Digest.newInstance())
@@ -34,15 +36,18 @@ object CryptoUtils {
         return output
     }
 
-    fun encrypt(algorithm: CryptoAlgorithm, key: ByteArray, plaintext: ByteArray, authData: ByteArray? = null): EncryptedMessage {
-        val nonce = ByteArray(12)
-        ProviderHolder.SECURE_RANDOM.nextBytes(nonce)
-
-        val builder = EncryptedMessage.newBuilder()
-            .setNonce(ByteString.copyFrom(nonce))
+    fun encrypt(algorithm: CryptoAlgorithm, builder: EncryptedMessage.Builder, key: ByteArray, authData: ByteArray?, plaintext: ByteArray): EncryptedMessage {
+        val nonce = if (builder.nonce.isEmpty) {
+            val out = ByteArray(12)
+            ProviderHolder.SECURE_RANDOM.nextBytes(out)
+            builder.setNonce(ByteString.copyFrom(out))
+            out
+        } else {
+            builder.nonce.toByteArray()
+        }
 
         val gcmBlockCipher = GCMBlockCipher.newInstance(AESEngine.newInstance())
-        gcmBlockCipher.init(true, AEADParameters(KeyParameter(key), 32, nonce))
+        gcmBlockCipher.init(true, AEADParameters(KeyParameter(key), 16 * 8, nonce))
 
         val ciphertext = ByteArray(gcmBlockCipher.getOutputSize(plaintext.size))
         val l = gcmBlockCipher.processBytes(plaintext, 0, plaintext.size, ciphertext, 0)
@@ -56,9 +61,9 @@ object CryptoUtils {
             .build()
     }
 
-    fun decrypt(algorithm: CryptoAlgorithm, key: ByteArray, message: EncryptedMessage, authData: ByteArray? = null): ByteArray {
+    fun decrypt(algorithm: CryptoAlgorithm, key: ByteArray, authData: ByteArray?, message: EncryptedMessage): ByteArray {
         val gcmBlockCipher = GCMBlockCipher.newInstance(AESEngine.newInstance())
-        gcmBlockCipher.init(false, AEADParameters(KeyParameter(key), 32, message.nonce.toByteArray()))
+        gcmBlockCipher.init(false, AEADParameters(KeyParameter(key), 16 * 8, message.nonce.toByteArray()))
 
         val ciphertext = message.ciphertext.toByteArray()
         val plaintext = ByteArray(message.ciphertext.size())
@@ -116,5 +121,13 @@ object CryptoUtils {
             privateKey = BcOpPrivateKey.from(keyType, keyPair.private),
             publicKey = BcOpPublicKey.from(keyType, keyPair.public),
         )
+    }
+
+    fun encodeLongBE(input: Long): ByteArray {
+        val out = ByteArray(8)
+        ByteBuffer.wrap(out)
+            .order(ByteOrder.BIG_ENDIAN)
+            .putLong(input)
+        return out
     }
 }
