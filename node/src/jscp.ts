@@ -1,7 +1,6 @@
 import { Go } from './tinygo_wasm_exec';
-import { GoWasmHelper } from 'go-wasm-helper';
+import { GoWasmHelper, RefId } from 'go-wasm-helper';
 import loadCoreWasm from './jscp.wasm';
-import {RefId} from "go-wasm-helper/lib/refid";
 
 class Base {
   protected helper!: GoWasmHelper;
@@ -27,7 +26,7 @@ export class Server extends Base {
   public start(): Promise<void> {
     return super.start()
       .then(() => {
-        this._instance = this.helper.callFunction('newServer');
+        this._instance = this.helper.callFunction('newServer', 0n);
       });
   }
 }
@@ -38,7 +37,7 @@ export class Client extends Base {
   public start(): Promise<void> {
     return super.start()
       .then(() => {
-        this._instance = this.helper.callFunction('newClient');
+        this._instance = this.helper.callFunction('newClient', 0n);
       });
   }
 }

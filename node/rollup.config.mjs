@@ -3,7 +3,7 @@ import { wasm } from '@rollup/plugin-wasm';
 
 /** @type {import('rollup').RollupOptions} */
 const options = {
-  input: './src/index.ts',
+  input: './src/types.ts',
   output: {
     dir: './dist',
     format: 'esm',

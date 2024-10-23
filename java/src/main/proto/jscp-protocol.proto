@@ -6,100 +6,110 @@ option java_package = "kr.jclab.jscp.payload";
 option java_outer_classname = "JcspPayload";
 option go_package = "github.com/jc-lab/jcsp/go/payloadpb";
 
-enum KeyType {
-  KeyTypeUnknown = 0;
-
-  KeyTypeDHStart = 1;
-  KeyTypeDHX25519 = 2;
-  KeyTypeDHEnd = 100;
-
-  KeyTypeSignatureStart = 101;
-  KeyTypeSignatureEd25519 = 102;
-  KeyTypeSignatureEnd = 200;
+// AEAD Cipher Algorithm
+enum CipherAlgorithm {
+  CipherUnknown = 0;
+  CipherAES = 1;
 }
 
-enum CryptoAlgorithm {
-  CryptoAlgorithmUnknown = 0;
-  CryptoAlgorithmAes = 1;
+enum HashAlgorithm {
+  HashUnknown = 0;
+  HashSha256 = 1;
 }
 
-message PublicKey {
-  KeyType key_type = 1;
-  bytes   data = 2;
+enum SignatureAlgorithm {
+  SignatureUnknown = 0;
+  SignatureEd25519 = 1;
 }
 
-message PrivateKey {
-  KeyType key_type = 1;
-  bytes   data = 2;
+enum DHAlgorithm {
+  DHUnknown = 0;
+  DHX25519 = 1;
 }
 
-message ClientHelloSigned {
-  PublicKey ephemeral_key = 1;
-  bytes     additional = 3;
+message SignaturePublicKey {
+  SignatureAlgorithm algorithm = 1;
+  bytes data = 2;
 }
 
-message ClientHello {
-  int32     version = 1;
-  bytes     signed = 2;     // ClientHelloSigned
-  bytes     additional = 3;
-  PublicKey static_key = 4;
-  bytes     signature  = 5;
+message SignaturePrivateKey {
+  SignatureAlgorithm algorithm = 1;
+  bytes data = 2;
 }
 
-message UnencryptedServerHello {
-  bytes signed = 2; // ServerHelloSigned
-  bytes signature = 3;
-}
-
-message ServerHelloSigned {
-  PublicKey       ephemeral_key = 1;
-  bytes           additional = 2;
-  CryptoAlgorithm crypto_algorithm = 3;
-}
-
-message EncryptedServerHello {
-  bytes certificate = 1; // x509 der
-  bytes additional = 2;
-}
-
-enum AlertCode {
-  AlertClose = 0;
-  AlertOther = 9;
-  AlertUnexpectedMessage = 10;
-}
-
-message Alert {
-  AlertCode code = 1;
-  string    message = 2;
-}
-
-enum CompressionType {
-  CompressionNone = 0;
-  CompressionZlib = 1;
-}
-
-message CompressionInfo {
-  CompressionType type = 1;
-}
-
-// CryptoAlgorithm-GCM
-message EncryptedMessage {
-  bytes nonce = 2;
-  // BEGIN AUTH DATA
-  // Sequence Number 64-bit BE
-  bytes compression_info = 3; // CompressionInfo
-  // END AUTH DATA
-  bytes ciphertext = 10;
-  bytes mac = 11;
-}
-
-message Payload {
-  oneof message {
-    bytes  client_hello = 10;             // ClientHello
-    bytes  unencrypted_server_hello = 11; // UnencryptedServerHello
-    Alert  unencrypted_alert = 12;        // Alert
-  }
-  EncryptedMessage encrypted_message = 20;
-  // server_hello_key = HKDF(master = ephemeral_master, salt = hash(client_hello), info = "SERVER_HELLO")
-  // session_key      = HKDF(master = server_hello_key, salt = hash(unencrypted_server_hello) + hash(EncryptedServerHello), info = "SESSION")
-}
+//
+//message PrivateKey {
+//  KeyType key_type = 1;
+//  bytes   data = 2;
+//}
+//
+//message ClientHelloSigned {
+//  PublicKey ephemeral_key = 1;
+//  bytes     additional = 3;
+//}
+//
+//message ClientHello {
+//  int32     version = 1;
+//  bytes     signed = 2;     // ClientHelloSigned
+//  bytes     additional = 3;
+//  PublicKey static_key = 4;
+//  bytes     signature  = 5;
+//}
+//
+//message UnencryptedServerHello {
+//  bytes signed = 2; // ServerHelloSigned
+//  bytes signature = 3;
+//}
+//
+//message ServerHelloSigned {
+//  PublicKey       ephemeral_key = 1;
+//  bytes           additional = 2;
+//  CryptoAlgorithm crypto_algorithm = 3;
+//}
+//
+//message EncryptedServerHello {
+//  bytes certificate = 1; // x509 der
+//  bytes additional = 2;
+//}
+//
+//enum AlertCode {
+//  AlertClose = 0;
+//  AlertOther = 9;
+//  AlertUnexpectedMessage = 10;
+//}
+//
+//message Alert {
+//  AlertCode code = 1;
+//  string    message = 2;
+//}
+//
+//enum Compression {
+//  CompressionNone = 0;
+//  CompressionZlib = 1;
+//}
+//
+//message CompressionInfo {
+//  CompressionType type = 1;
+//}
+//
+//// CryptoAlgorithm-GCM
+//message EncryptedMessage {
+//  bytes nonce = 2;
+//  // BEGIN AUTH DATA
+//  // Sequence Number 64-bit BE
+//  bytes compression_info = 3; // CompressionInfo
+//  // END AUTH DATA
+//  bytes ciphertext = 10;
+//  bytes mac = 11;
+//}
+//
+//message Payload {
+//  oneof message {
+//    bytes  client_hello = 10;             // ClientHello
+//    bytes  unencrypted_server_hello = 11; // UnencryptedServerHello
+//    Alert  unencrypted_alert = 12;        // Alert
+//  }
+//  EncryptedMessage encrypted_message = 20;
+//  // server_hello_key = HKDF(master = ephemeral_master, salt = hash(client_hello), info = "SERVER_HELLO")
+//  // session_key      = HKDF(master = server_hello_key, salt = hash(unencrypted_server_hello) + hash(EncryptedServerHello), info = "SESSION")
+//}
