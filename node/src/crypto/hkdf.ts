@@ -1,13 +1,12 @@
-import { HashConstructor } from './hash';
 import { HKDF } from '@stablelib/hkdf';
 import { Bytes } from './types';
+import { SHA256 } from '@stablelib/sha256';
 
 export function hkdf(
-    hashClass: HashConstructor,
     key: Bytes /* ikm */,
-    salt: Bytes /* old key */
+    salt?: Bytes /* old key */
 ): [Bytes, Bytes] {
-    const hkdf = new HKDF(hashClass, key, salt);
+    const hkdf = new HKDF(SHA256, key, salt);
     const okm = hkdf.expand(96);
 
     const k1 = okm.subarray(0, 32);

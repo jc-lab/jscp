@@ -2,12 +2,16 @@ import { Bytes } from './types';
 import * as proto from '../proto';
 
 import * as x25519 from '@stablelib/x25519';
-import { DHAlgorithm } from '../proto';
+
+export type DHKeyPair = {
+    private: DHPrivateKey,
+    public: DHPublicKey,
+}
 
 export interface DHAlgorithm {
     readonly type: proto.DHAlgorithm;
 
-    generate(): [DHPrivateKey, DHPublicKey];
+    generate(): DHKeyPair;
     unmarshalPublicKey(input: Bytes): DHPublicKey;
     unmarshalPrivateKey(input: Bytes): DHPrivateKey;
 }
@@ -26,13 +30,13 @@ export interface DHPrivateKey {
 export class X25519Algorithm implements DHAlgorithm {
     readonly type: proto.DHAlgorithm = proto.DHAlgorithm.DHX25519;
 
-    generate(): [DHPrivateKey, DHPublicKey] {
+    generate(): DHKeyPair {
         const keyPair = x25519.generateKeyPair();
 
-        return [
-            new X25519PrivateKey(keyPair.secretKey),
-            new X25519PublicKey(keyPair.publicKey),
-        ];
+        return {
+            private: new X25519PrivateKey(keyPair.secretKey),
+            public: new X25519PublicKey(keyPair.publicKey),
+        };
     }
 
     unmarshalPrivateKey(input: Bytes): DHPrivateKey {

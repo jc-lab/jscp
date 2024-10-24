@@ -9,17 +9,13 @@ option go_package = "github.com/jc-lab/jcsp/go/payloadpb";
 // AEAD Cipher Algorithm
 enum CipherAlgorithm {
   CipherUnknown = 0;
-  CipherAES = 1;
-}
-
-enum HashAlgorithm {
-  HashUnknown = 0;
-  HashSha256 = 1;
+  CipherAesGcm  = 1;
 }
 
 enum SignatureAlgorithm {
   SignatureUnknown = 0;
-  SignatureEd25519 = 1;
+  SignatureX509 = 1;
+  SignatureEd25519 = 2;
 }
 
 enum DHAlgorithm {
@@ -37,79 +33,50 @@ message SignaturePrivateKey {
   bytes data = 2;
 }
 
-//
-//message PrivateKey {
-//  KeyType key_type = 1;
-//  bytes   data = 2;
-//}
-//
-//message ClientHelloSigned {
-//  PublicKey ephemeral_key = 1;
-//  bytes     additional = 3;
-//}
-//
-//message ClientHello {
-//  int32     version = 1;
-//  bytes     signed = 2;     // ClientHelloSigned
-//  bytes     additional = 3;
-//  PublicKey static_key = 4;
-//  bytes     signature  = 5;
-//}
-//
-//message UnencryptedServerHello {
-//  bytes signed = 2; // ServerHelloSigned
-//  bytes signature = 3;
-//}
-//
-//message ServerHelloSigned {
-//  PublicKey       ephemeral_key = 1;
-//  bytes           additional = 2;
-//  CryptoAlgorithm crypto_algorithm = 3;
-//}
-//
-//message EncryptedServerHello {
-//  bytes certificate = 1; // x509 der
-//  bytes additional = 2;
-//}
-//
-//enum AlertCode {
-//  AlertClose = 0;
-//  AlertOther = 9;
-//  AlertUnexpectedMessage = 10;
-//}
-//
-//message Alert {
-//  AlertCode code = 1;
-//  string    message = 2;
-//}
-//
-//enum Compression {
-//  CompressionNone = 0;
-//  CompressionZlib = 1;
-//}
-//
-//message CompressionInfo {
-//  CompressionType type = 1;
-//}
-//
-//// CryptoAlgorithm-GCM
-//message EncryptedMessage {
-//  bytes nonce = 2;
-//  // BEGIN AUTH DATA
-//  // Sequence Number 64-bit BE
-//  bytes compression_info = 3; // CompressionInfo
-//  // END AUTH DATA
-//  bytes ciphertext = 10;
-//  bytes mac = 11;
-//}
-//
-//message Payload {
-//  oneof message {
-//    bytes  client_hello = 10;             // ClientHello
-//    bytes  unencrypted_server_hello = 11; // UnencryptedServerHello
-//    Alert  unencrypted_alert = 12;        // Alert
-//  }
-//  EncryptedMessage encrypted_message = 20;
-//  // server_hello_key = HKDF(master = ephemeral_master, salt = hash(client_hello), info = "SERVER_HELLO")
-//  // session_key      = HKDF(master = server_hello_key, salt = hash(unencrypted_server_hello) + hash(EncryptedServerHello), info = "SESSION")
-//}
+message DHPublicKey {
+  DHAlgorithm algorithm = 1;
+  bytes data = 2;
+}
+
+enum PayloadType {
+  PayloadUnknown = 0;
+  PayloadHello = 1;
+
+  // Requests a different algorithm to be used. SymmetricState must be reset.
+  PayloadHelloWithChangeAlgorithm = 2;
+}
+
+message Payload {
+  PayloadType payload_type = 1;
+  bytes       data = 2;
+}
+
+message HelloSigned {
+  repeated DHAlgorithm     support_dh     = 1; // Support DH Algorithms
+  repeated CipherAlgorithm support_cipher = 2; // Support Cipher Algorithms
+  CipherAlgorithm          cipher_algorithm = 3;
+  SignaturePublicKey       public_key     = 4; // hello_02: MixHash
+  DHPublicKey              ephemeral_key  = 5; // hello_03: MixHash or MixKey
+  bytes                    additional     = 6; // hello_04: EncryptAndMixHash
+}
+
+message HelloSignedBytes {
+  repeated DHAlgorithm     support_dh    = 1;
+  repeated CipherAlgorithm support_cipher = 2;
+  CipherAlgorithm          cipher_algorithm = 3;
+  bytes                    public_key    = 4; // SignaturePublicKey
+  bytes                    ephemeral_key = 5; // DHPublicKey
+  bytes                    additional    = 6;
+}
+
+message Hello {
+  int32 version = 1;      // hello_01: MixHash(version as little-endian)
+  HelloSigned signed = 2; // marshaled HelloSigned
+  bytes signature = 3;    // optional signature. signed by Sender's static key
+}
+
+message HelloBytes {
+  int32 version = 1;
+  bytes signed  = 2;   // marshaled HelloSigned
+  bytes signature = 3; // hello_05: MixHash
+}
