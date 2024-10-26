@@ -6,6 +6,9 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "allowJs": true
+    "allowJs": true,
+    "types": [
+      "@sounisi5011/jest-binary-data-matchers"
+    ]
   }
 }

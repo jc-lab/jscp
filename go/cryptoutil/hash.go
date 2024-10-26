@@ -6,16 +6,16 @@ import (
 	"io"
 )
 
-// HashSha256 computes the SHA256 hash of the input data
-func HashSha256(data []byte) []byte {
+// Hash computes the SHA256 hash of the input data
+func Hash(data []byte) []byte {
 	hash := sha256.Sum256(data)
 	return hash[:]
 }
 
-// HkdfSha256 generates a key using HKDF-SHA256
-func HkdfSha256(ikm, salt, info []byte, length int) []byte {
-	hkdfReader := hkdf.New(sha256.New, ikm, salt, info)
-	key := make([]byte, length)
-	_, _ = io.ReadFull(hkdfReader, key)
-	return key
+// Hkdf generates a key using HKDF-SHA256
+func Hkdf(key []byte, salt []byte) ([]byte, []byte) {
+	hkdfReader := hkdf.New(sha256.New, key, salt, nil)
+	out := make([]byte, 32*2)
+	_, _ = io.ReadFull(hkdfReader, out)
+	return out[0:32], out[32:64]
 }

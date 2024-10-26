@@ -5,4 +5,7 @@ module.exports = {
   // transform: {
   //   "^.+.tsx?$": ["ts-jest",{}],
   // },
+  setupFilesAfterEnv: [
+    '@sounisi5011/jest-binary-data-matchers'
+  ],
 };

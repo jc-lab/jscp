@@ -3,7 +3,6 @@ package cryptoutil
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/jc-lab/jscp/go/payloadpb"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -51,6 +50,7 @@ var aesGcmTestVectors = []struct {
 }
 
 func TestAESGCMWithEncrypt(t *testing.T) {
+	c := &AesGcmCipher{}
 	for index, v := range aesGcmTestVectors {
 		t.Run(fmt.Sprintf("index %d", index), func(t *testing.T) {
 			key, _ := hex.DecodeString(v.key)
@@ -60,15 +60,11 @@ func TestAESGCMWithEncrypt(t *testing.T) {
 			expectedCipherText, _ := hex.DecodeString(v.cipherText)
 			expectedTag, _ := hex.DecodeString(v.tag)
 
-			// Use the Encrypt function
-			dest := &payloadpb.EncryptedMessage{
-				Nonce: iv,
-			}
-			err := Encrypt(payloadpb.CryptoAlgorithm_CryptoAlgorithmAes, dest, key, adata, plainText)
+			dest, err := c.Seal(key, iv, plainText, adata)
 			assert.NoError(t, err)
 
-			actualTag := dest.Ciphertext[len(dest.Ciphertext)-len(expectedTag):] // Assuming the tag is the last 16 bytes
-			actualCipherText := dest.Ciphertext[:len(dest.Ciphertext)-len(expectedTag)]
+			actualTag := dest[len(dest)-len(expectedTag):] // Assuming the tag is the last 16 bytes
+			actualCipherText := dest[:len(dest)-len(expectedTag)]
 
 			// Validate ciphertext and tag
 			assert.Equal(t, expectedCipherText, actualCipherText)
@@ -78,6 +74,7 @@ func TestAESGCMWithEncrypt(t *testing.T) {
 }
 
 func TestAESGCMWithDecrypt(t *testing.T) {
+	c := &AesGcmCipher{}
 	for index, v := range aesGcmTestVectors {
 		t.Run(fmt.Sprintf("index %d", index), func(t *testing.T) {
 			key, _ := hex.DecodeString(v.key)
@@ -87,12 +84,7 @@ func TestAESGCMWithDecrypt(t *testing.T) {
 			cipherText, _ := hex.DecodeString(v.cipherText)
 			expectedTag, _ := hex.DecodeString(v.tag)
 
-			// Use the Encrypt function
-			encryptedMessage := &payloadpb.EncryptedMessage{
-				Nonce: iv,
-			}
-			encryptedMessage.Ciphertext = append(cipherText, expectedTag...)
-			plaintext, err := Decrypt(payloadpb.CryptoAlgorithm_CryptoAlgorithmAes, key, adata, encryptedMessage)
+			plaintext, err := c.Open(key, iv, append(cipherText, expectedTag...), adata)
 			assert.NoError(t, err)
 
 			if plaintext == nil {

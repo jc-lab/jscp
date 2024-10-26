@@ -57,7 +57,7 @@ func (i *Server) OnMessage(payload *payloadpb.Payload) *Transfer {
 			}
 		}
 
-		clientHelloHash := cryptoutil.HashSha256(clientHelloBytes.ClientHello)
+		clientHelloHash := cryptoutil.Hash(clientHelloBytes.ClientHello)
 		var signedClientHello payloadpb.ClientHelloSigned
 		if err = signedClientHello.UnmarshalVT(clientHello.Signed); err != nil {
 			return receiveResultSetError(transfer, err)
@@ -107,7 +107,7 @@ func (i *Server) OnMessage(payload *payloadpb.Payload) *Transfer {
 		if err != nil {
 			return receiveResultSetError(transfer, err)
 		}
-		encryptedServerHelloHash := cryptoutil.HashSha256(encryptedServerHelloBytes)
+		encryptedServerHelloHash := cryptoutil.Hash(encryptedServerHelloBytes)
 
 		var unencryptedServerHello payloadpb.UnencryptedServerHello
 		unencryptedServerHello.Signed = serverHelloSignedBytes
@@ -122,7 +122,7 @@ func (i *Server) OnMessage(payload *payloadpb.Payload) *Transfer {
 		if err != nil {
 			return receiveResultSetError(transfer, err)
 		}
-		unencryptedServerHelloHash := cryptoutil.HashSha256(unencryptedServerHelloBytes)
+		unencryptedServerHelloHash := cryptoutil.Hash(unencryptedServerHelloBytes)
 
 		serverHelloKey := i.generateServerHelloKey(ephemeralMasterKey, clientHelloHash)
 		ciphertext, err := i.encrypt(encryptedServerHelloBytes, serverHelloKey)

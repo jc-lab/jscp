@@ -1,5 +1,4 @@
 import typescript from '@rollup/plugin-typescript';
-import { wasm } from '@rollup/plugin-wasm';
 
 /** @type {import('rollup').RollupOptions} */
 const options = {
@@ -12,9 +11,6 @@ const options = {
     typescript({
       tsconfig: './tsconfig.lib.json',
       declarationDir: './dist'
-    }),
-    wasm({
-      targetEnv: 'auto-inline',
     }),
   ],
 };

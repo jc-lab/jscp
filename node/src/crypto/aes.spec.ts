@@ -1,4 +1,4 @@
-import { AesGcmCipher } from './cipher';
+import { AesGcmCipher } from './aes';
 import * as hex from '@stablelib/hex';
 
 interface TestVector {
@@ -12,7 +12,6 @@ interface TestVector {
 
 describe('AesGcmCipher', () => {
     const cipher = new AesGcmCipher();
-
 
     // Test vectors from the paper
     const testVectors: TestVector[] = [

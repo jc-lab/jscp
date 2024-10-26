@@ -1,12 +1,7 @@
-import * as proto from '../proto';
 import { AES } from '@stablelib/aes';
 import { GCM } from '@stablelib/gcm';
-
-export interface Cipher {
-    readonly type: proto.CipherAlgorithm;
-    seal: (key: Uint8Array, nonce: Uint8Array, plaintext: Uint8Array, ad: Uint8Array) => Uint8Array;
-    open: (key: Uint8Array, nonce: Uint8Array, ciphertext: Uint8Array, ad: Uint8Array) => Uint8Array;
-}
+import { Cipher } from './types';
+import * as proto from '../proto';
 
 export class AesGcmCipher implements Cipher {
     public readonly type: proto.CipherAlgorithm = proto.CipherAlgorithm.CipherAesGcm;
@@ -23,15 +18,5 @@ export class AesGcmCipher implements Cipher {
             throw new Error('decrypt failed');
         }
         return output;
-    }
-}
-
-export function getCipherAlgorithm(type: proto.CipherAlgorithm): Cipher {
-    switch (type) {
-        case proto.CipherAlgorithm.CipherAesGcm:
-            return new AesGcmCipher();
-
-        default:
-            throw new Error(`unknown cipher algorithm: ${type}`);
     }
 }

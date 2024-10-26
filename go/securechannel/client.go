@@ -64,7 +64,7 @@ func (i *Client) OnMessage(payload *payloadpb.Payload) *Transfer {
 	unencryptedServerHelloBytes, ok := payload.Message.(*payloadpb.Payload_UnencryptedServerHello)
 	if ok {
 		var unencryptedServerHello payloadpb.UnencryptedServerHello
-		unencryptedServerHelloHash := cryptoutil.HashSha256(unencryptedServerHelloBytes.UnencryptedServerHello)
+		unencryptedServerHelloHash := cryptoutil.Hash(unencryptedServerHelloBytes.UnencryptedServerHello)
 		if err = unencryptedServerHello.UnmarshalVT(unencryptedServerHelloBytes.UnencryptedServerHello); err != nil {
 			return receiveResultSetError(transfer, err)
 		}
@@ -89,7 +89,7 @@ func (i *Client) OnMessage(payload *payloadpb.Payload) *Transfer {
 		if err != nil {
 			return receiveResultSetError(transfer, err)
 		}
-		encryptedServerHelloHash := cryptoutil.HashSha256(encryptedServerHelloBytes)
+		encryptedServerHelloHash := cryptoutil.Hash(encryptedServerHelloBytes)
 
 		var encryptedServerHello payloadpb.EncryptedServerHello
 		if err = encryptedServerHello.UnmarshalVT(encryptedServerHelloBytes); err != nil {
@@ -159,7 +159,7 @@ func (i *Client) startHandshake() (*Transfer, error) {
 	}
 
 	clientHelloBytes, err := clientHello.MarshalVT()
-	i.clientHelloHash = cryptoutil.HashSha256(clientHelloBytes)
+	i.clientHelloHash = cryptoutil.Hash(clientHelloBytes)
 
 	transfer.Send = append(transfer.Send, &payloadpb.Payload{
 		Message: &payloadpb.Payload_ClientHello{clientHelloBytes},

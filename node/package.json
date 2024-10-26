@@ -23,6 +23,7 @@
     "@babel/preset-typescript": "^7.25.9",
     "@eslint/eslintrc": "^3.1.0",
     "@rollup/plugin-typescript": "^12.1.1",
+    "@sounisi5011/jest-binary-data-matchers": "^1.2.1",
     "@stylistic/eslint-plugin-js": "^2.9.0",
     "@types/jest": "^29.5.13",
     "@types/node": "^22.7.5",
@@ -49,6 +50,8 @@
     "@stablelib/hkdf": "^2.0.0",
     "@stablelib/sha256": "^2.0.0",
     "@stablelib/x25519": "^2.0.0",
+    "commons-crypto": "^0.3.5",
+    "hash.js": "^1.1.7",
     "uint8arrays": "^5.1.0"
   },
   "author": "Joseph Lee <joseph@jc-lab.net>",

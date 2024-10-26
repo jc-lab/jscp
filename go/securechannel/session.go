@@ -82,16 +82,16 @@ func (sc *secureChannelBase) setHandshakeComplete(result *HandshakeResult) {
 }
 
 func (sc *secureChannelBase) generateServerHelloKey(ephemeralMasterKey []byte, clientHelloHash []byte) []byte {
-	serverHelloKey := cryptoutil.HkdfSha256(ephemeralMasterKey, clientHelloHash, []byte("SERVER_HELLO"), 32)
+	serverHelloKey := cryptoutil.Hkdf(ephemeralMasterKey, clientHelloHash, []byte("SERVER_HELLO"), 32)
 	return serverHelloKey
 }
 
 func (sc *secureChannelBase) setSessionKey(unencryptedServerHelloHash, encryptedServerHelloHash []byte) {
-	sessionKey := cryptoutil.HkdfSha256(sc.serverHelloKey, append(unencryptedServerHelloHash, encryptedServerHelloHash...), []byte("SESSION"), 32)
+	sessionKey := cryptoutil.Hkdf(sc.serverHelloKey, append(unencryptedServerHelloHash, encryptedServerHelloHash...), []byte("SESSION"), 32)
 	sc.sessionKey = sessionKey
 
-	serverEncryptKey := cryptoutil.HkdfSha256(sessionKey, nil, []byte("SERVER"), 32)
-	clientEncryptKey := cryptoutil.HkdfSha256(sessionKey, nil, []byte("CLIENT"), 32)
+	serverEncryptKey := cryptoutil.Hkdf(sessionKey, nil, []byte("SERVER"), 32)
+	clientEncryptKey := cryptoutil.Hkdf(sessionKey, nil, []byte("CLIENT"), 32)
 
 	if sc.serverMode {
 		sc.localEncryptKey = serverEncryptKey

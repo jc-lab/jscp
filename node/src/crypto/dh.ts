@@ -1,31 +1,6 @@
-import { Bytes } from './types';
-import * as proto from '../proto';
-
 import * as x25519 from '@stablelib/x25519';
-
-export type DHKeyPair = {
-    private: DHPrivateKey,
-    public: DHPublicKey,
-}
-
-export interface DHAlgorithm {
-    readonly type: proto.DHAlgorithm;
-
-    generate(): DHKeyPair;
-    unmarshalPublicKey(input: Bytes): DHPublicKey;
-    unmarshalPrivateKey(input: Bytes): DHPrivateKey;
-}
-
-export interface DHPublicKey {
-    readonly algorithm: DHAlgorithm;
-    marshal(): Bytes;
-}
-
-export interface DHPrivateKey {
-    readonly algorithm: DHAlgorithm;
-    dh(peerKey: DHPublicKey): Bytes;
-    marshal(): Bytes;
-}
+import { Bytes, DHAlgorithm, DHKeyPair, DHPrivateKey, DHPublicKey } from './types';
+import * as proto from '../proto';
 
 export class X25519Algorithm implements DHAlgorithm {
     readonly type: proto.DHAlgorithm = proto.DHAlgorithm.DHX25519;
@@ -69,19 +44,5 @@ export class X25519PrivateKey implements DHPrivateKey {
         }
         const peerKeyImpl = (peerKey as X25519PublicKey);
         return x25519.sharedKey(this.key, peerKeyImpl.key)
-    }
-
-    marshal(): Bytes {
-        return this.key;
-    }
-}
-
-export function getDHAlgorithm(type: proto.DHAlgorithm): DHAlgorithm {
-    switch (type) {
-        case proto.DHAlgorithm.DHX25519:
-            return new X25519Algorithm();
-
-        default:
-            throw new Error(`unknown key type: ${type}`);
     }
 }
