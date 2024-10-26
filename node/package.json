@@ -1,5 +1,5 @@
 {
-  "name": "jscp",
+  "name": "@jclab/jscp",
   "version": "1.0.0",
   "license": "Apache-2.0",
   "scripts": {
@@ -9,14 +9,18 @@
     "generate:proto": "node ./gen-proto.mjs"
   },
   "type": "module",
-  "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
   "files": [
     "lib",
     "LICENSE",
     "README.md"
   ],
-  "packageManager": "yarn@3.8.6",
+  "exports": {
+    ".": {
+      "require": "./lib/index.cjs",
+      "import": "./lib/index.mjs",
+      "types": "./lib/index.d.ts"
+    }
+  },
   "devDependencies": {
     "@babel/core": "^7.25.9",
     "@babel/preset-env": "^7.25.9",
@@ -58,5 +62,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/jc-lab/jscp.git"
-  }
+  },
+  "packageManager": "yarn@3.8.6"
 }

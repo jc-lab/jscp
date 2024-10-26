@@ -1,0 +1,17 @@
+name: Test
+on:
+  push:
+    branches:
+      - '**'
+  pull_request: {}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20, 22]
+    uses: ./.github/workflows/base.yaml
+    with:
+      node-version: ${{ matrix.node-version }}
+      upload: false
