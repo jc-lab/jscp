@@ -12,7 +12,7 @@ func Hash(data []byte) []byte {
 	return hash[:]
 }
 
-// Hkdf generates a key using HKDF-SHA256
+// Hkdf generates a Key using HKDF-SHA256
 func Hkdf(key []byte, salt []byte) ([]byte, []byte) {
 	hkdfReader := hkdf.New(sha256.New, key, salt, nil)
 	out := make([]byte, 32*2)

@@ -24,10 +24,10 @@ func (a *X25519Algorithm) Generate() (*DHKeyPair, error) {
 	}
 	keyPair := &DHKeyPair{
 		Private: &X25519PrivateKey{
-			key: privateKey,
+			Key: privateKey,
 		},
 		Public: &X25519PublicKey{
-			key: privateKey.PublicKey(),
+			Key: privateKey.PublicKey(),
 		},
 	}
 	return keyPair, nil
@@ -40,12 +40,12 @@ func (a *X25519Algorithm) UnmarshalPublicKey(input []byte) (DHPublicKey, error) 
 		return nil, err
 	}
 	return &X25519PublicKey{
-		key: publicKey,
+		Key: publicKey,
 	}, nil
 }
 
 type X25519PrivateKey struct {
-	key *ecdh.PrivateKey
+	Key *ecdh.PrivateKey
 }
 
 func (k *X25519PrivateKey) Algorithm() DHAlgorithm {
@@ -57,11 +57,11 @@ func (k *X25519PrivateKey) DH(peerKey DHPublicKey) ([]byte, error) {
 	if !ok {
 		return nil, errors.New("peerKey is not x25519")
 	}
-	return k.key.ECDH(publicKey.key)
+	return k.Key.ECDH(publicKey.Key)
 }
 
 type X25519PublicKey struct {
-	key *ecdh.PublicKey
+	Key *ecdh.PublicKey
 }
 
 func (k *X25519PublicKey) Algorithm() DHAlgorithm {
@@ -69,5 +69,5 @@ func (k *X25519PublicKey) Algorithm() DHAlgorithm {
 }
 
 func (k *X25519PublicKey) Marshal() []byte {
-	return k.key.Bytes()
+	return k.Key.Bytes()
 }

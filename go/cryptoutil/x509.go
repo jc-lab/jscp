@@ -25,13 +25,13 @@ func (a *X509Algorithm) UnmarshalPublicKey(input []byte) (SignaturePublicKey, er
 		return nil, err
 	}
 	instance := &X509PublicKey{
-		cert: cert,
+		Cert: cert,
 	}
 	return instance, nil
 }
 
 type X509PublicKey struct {
-	cert *x509.Certificate
+	Cert *x509.Certificate
 }
 
 func (k *X509PublicKey) Algorithm() SignatureAlgorithm {
@@ -39,25 +39,25 @@ func (k *X509PublicKey) Algorithm() SignatureAlgorithm {
 }
 
 func (k *X509PublicKey) Certificate() *x509.Certificate {
-	return k.cert
+	return k.Cert
 }
 
 func (k *X509PublicKey) Verify(data []byte, signature []byte) (bool, error) {
-	pubKey := k.cert.PublicKey
+	pubKey := k.Cert.PublicKey
 	switch typed := pubKey.(type) {
 	case ed25519.PublicKey:
 		return ed25519.Verify(typed, data, signature), nil
 	case *ecdsa.PublicKey:
 		return ecdsa.VerifyASN1(typed, Hash(data), signature), nil
 	default:
-		return false, fmt.Errorf("not supported public key: %+v", typed)
+		return false, fmt.Errorf("not supported public Key: %+v", typed)
 	}
 }
 
 func (k *X509PublicKey) MarshalToProto() (*payloadpb.SignaturePublicKey, error) {
 	return &payloadpb.SignaturePublicKey{
 		Algorithm: k.Algorithm().GetType(),
-		Data:      k.cert.Raw,
+		Data:      k.Cert.Raw,
 	}, nil
 }
 
@@ -79,7 +79,7 @@ func (k *X509PrivateKey) Algorithm() SignatureAlgorithm {
 
 func (k *X509PrivateKey) GetPublic() SignaturePublicKey {
 	return &X509PublicKey{
-		cert: k.cert,
+		Cert: k.cert,
 	}
 }
 

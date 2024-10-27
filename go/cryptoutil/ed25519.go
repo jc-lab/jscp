@@ -19,10 +19,10 @@ func (a *Ed25519Algorithm) GetType() payloadpb.SignatureAlgorithm {
 func (a *Ed25519Algorithm) UnmarshalPublicKey(input []byte) (SignaturePublicKey, error) {
 	publicKey := ed25519.PublicKey(input)
 	if len(input) != ed25519.PublicKeySize {
-		return nil, fmt.Errorf("invalid key size expected=%d, actual=%d", ed25519.PublicKeySize, len(input))
+		return nil, fmt.Errorf("invalid Key size expected=%d, actual=%d", ed25519.PublicKeySize, len(input))
 	}
 	instance := &Ed25519PublicKey{
-		key: publicKey,
+		Key: publicKey,
 	}
 	return instance, nil
 }
@@ -33,12 +33,12 @@ func (a *Ed25519Algorithm) Generate() (SignaturePrivateKey, error) {
 		return nil, err
 	}
 	return &Ed25519PrivateKey{
-		key: privateKey,
+		Key: privateKey,
 	}, nil
 }
 
 type Ed25519PublicKey struct {
-	key ed25519.PublicKey
+	Key ed25519.PublicKey
 }
 
 func (k *Ed25519PublicKey) Algorithm() SignatureAlgorithm {
@@ -46,18 +46,18 @@ func (k *Ed25519PublicKey) Algorithm() SignatureAlgorithm {
 }
 
 func (k *Ed25519PublicKey) Verify(data []byte, signature []byte) (bool, error) {
-	return ed25519.Verify(k.key, data, signature), nil
+	return ed25519.Verify(k.Key, data, signature), nil
 }
 
 func (k *Ed25519PublicKey) MarshalToProto() (*payloadpb.SignaturePublicKey, error) {
 	return &payloadpb.SignaturePublicKey{
 		Algorithm: k.Algorithm().GetType(),
-		Data:      k.key,
+		Data:      k.Key,
 	}, nil
 }
 
 type Ed25519PrivateKey struct {
-	key ed25519.PrivateKey
+	Key ed25519.PrivateKey
 }
 
 func (k *Ed25519PrivateKey) Algorithm() SignatureAlgorithm {
@@ -66,10 +66,10 @@ func (k *Ed25519PrivateKey) Algorithm() SignatureAlgorithm {
 
 func (k *Ed25519PrivateKey) GetPublic() SignaturePublicKey {
 	return &Ed25519PublicKey{
-		key: k.key.Public().(ed25519.PublicKey),
+		Key: k.Key.Public().(ed25519.PublicKey),
 	}
 }
 
 func (k *Ed25519PrivateKey) Sign(data []byte) ([]byte, error) {
-	return ed25519.Sign(k.key, data), nil
+	return ed25519.Sign(k.Key, data), nil
 }
