@@ -22,6 +22,10 @@ func NewSymmetricState() *SymmetricState {
 	}
 }
 
+func (s *SymmetricState) HasKey() bool {
+	return s.cs != nil
+}
+
 // MixHash mixes the given data into the hash state
 func (s *SymmetricState) MixHash(data []byte) {
 	h := sha256.Sum256(append(s.h, data...))
@@ -35,18 +39,36 @@ func (s *SymmetricState) MixKey(cipher cryptoutil.CipherAlgorithm, key []byte) {
 	s.cs = NewCipherState(cipher, temp)
 }
 
+func (s *SymmetricState) EncryptWithAd(plaintext []byte, ad []byte) ([]byte, error) {
+	nonce := s.cs.Nonce.GetBytes()
+	ciphertext, err := s.cs.Cipher.Seal(s.cs.Key, nonce, plaintext, ad)
+	if err != nil {
+		return nil, err
+	}
+	s.cs.Nonce.Increment()
+	return ciphertext, err
+}
+
+func (s *SymmetricState) DecryptWithAd(ciphertext []byte, ad []byte) ([]byte, error) {
+	nonce := s.cs.Nonce.GetBytes()
+	plaintext, err := s.cs.Cipher.Open(s.cs.Key, nonce, ciphertext, ad)
+	if err != nil {
+		return nil, err
+	}
+	s.cs.Nonce.Increment()
+	return plaintext, nil
+}
+
 // EncryptAndMixHash encrypts the plaintext and mixes the ciphertext into the state
 func (s *SymmetricState) EncryptAndMixHash(plaintext []byte, mustSecret bool) ([]byte, error) {
 	var ciphertext []byte
 
 	if s.cs != nil {
 		var err error
-		nonce := s.cs.Nonce.GetBytes()
-		ciphertext, err = s.cs.Cipher.Seal(s.cs.Key, nonce, plaintext, s.h)
+		ciphertext, err = s.EncryptWithAd(plaintext, s.h)
 		if err != nil {
 			return nil, err
 		}
-		s.cs.Nonce.Increment()
 	} else {
 		if mustSecret {
 			return nil, fmt.Errorf("must secret")
@@ -60,17 +82,19 @@ func (s *SymmetricState) EncryptAndMixHash(plaintext []byte, mustSecret bool) ([
 
 // MixHashAndDecrypt decrypts the ciphertext and mixes it into the state
 func (s *SymmetricState) MixHashAndDecrypt(ciphertext []byte) ([]byte, error) {
+	var plaintext []byte
+
 	if s.cs != nil {
-		nonce := s.cs.Nonce.GetBytes()
-		plaintext, err := s.cs.Cipher.Open(s.cs.Key, nonce, ciphertext, s.h)
+		var err error
+		plaintext, err = s.DecryptWithAd(ciphertext, s.h)
 		if err != nil {
 			return nil, err
 		}
-		s.MixHash(ciphertext)
-		s.cs.Nonce.Increment()
-		return plaintext, nil
+	} else {
+		plaintext = ciphertext
 	}
 
 	s.MixHash(ciphertext)
-	return ciphertext, nil
+
+	return plaintext, nil
 }

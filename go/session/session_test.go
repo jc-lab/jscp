@@ -2,9 +2,11 @@ package session
 
 import (
 	"bytes"
+	srand "crypto/rand"
 	"github.com/jc-lab/jscp/go/cryptoutil"
 	"github.com/jc-lab/jscp/go/payloadpb"
 	"github.com/stretchr/testify/assert"
+	rand "math/rand/v2"
 	"testing"
 	"time"
 )
@@ -16,6 +18,7 @@ func TestCommunication(t *testing.T) {
 		clientAdditional []byte
 		expectAdditional bool
 		useSignature     bool
+		useData          bool
 	}{
 		{
 			name:             "no static - no static - without additional",
@@ -44,7 +47,20 @@ func TestCommunication(t *testing.T) {
 			expectAdditional: true,
 			useSignature:     true,
 		},
+		{
+			name:             "data communication",
+			serverAdditional: []byte("i am server"),
+			clientAdditional: []byte("i am client"),
+			expectAdditional: true,
+			useSignature:     true,
+			useData:          true,
+		},
 	}
+
+	var seed [32]byte
+	srand.Reader.Read(seed[:])
+	randReader := rand.NewChaCha8(seed)
+	buf := make([]byte, 65536)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,7 +96,7 @@ func TestCommunication(t *testing.T) {
 				for payload := range serverToClient {
 					err := client.HandleReceive(payload)
 					if err != nil {
-						t.Errorf("client.HandleReceive error: %v", err)
+						t.Fatalf("client.HandleReceive error: %v", err)
 					}
 				}
 			}()
@@ -89,7 +105,7 @@ func TestCommunication(t *testing.T) {
 				for payload := range clientToServer {
 					err := server.HandleReceive(payload)
 					if err != nil {
-						t.Errorf("server.HandleReceive error: %v", err)
+						t.Fatalf("server.HandleReceive error: %v", err)
 					}
 				}
 			}()
@@ -160,6 +176,34 @@ func TestCommunication(t *testing.T) {
 			if tc.useSignature {
 				compareSignaturePublicKey(t, serverPrivateKey.GetPublic(), clientResult.RemotePublicKey)
 				compareSignaturePublicKey(t, clientPrivateKey.GetPublic(), serverResult.RemotePublicKey)
+			}
+
+			if tc.useData {
+				serverRecvCh := make(chan []byte, 1)
+				server.RecvFunc = func(data []byte) {
+					serverRecvCh <- data
+				}
+				clientRecvCh := make(chan []byte, 1)
+				client.RecvFunc = func(data []byte) {
+					clientRecvCh <- data
+				}
+
+				t.Cleanup(func() {
+					close(serverRecvCh)
+					close(clientRecvCh)
+				})
+
+				for i := 0; i < 1000; i++ {
+					randReader.Read(buf)
+					server.Send(buf)
+					recv := <-clientRecvCh
+					assert.Equal(t, buf, recv)
+
+					randReader.Read(buf)
+					client.Send(buf)
+					recv = <-serverRecvCh
+					assert.Equal(t, buf, recv)
+				}
 			}
 
 			// Close channels

@@ -44,6 +44,8 @@ enum PayloadType {
 
   // Requests a different algorithm to be used. SymmetricState must be reset.
   PayloadHelloWithChangeAlgorithm = 2;
+
+  PayloadEncryptedMessage = 10;
 }
 
 message Payload {
@@ -79,4 +81,8 @@ message HelloBytes {
   int32 version = 1;
   bytes signed  = 2;   // marshaled HelloSigned
   bytes signature = 3; // hello_05: MixHash
+}
+
+message EncryptedMessage {
+  bytes data = 10;
 }

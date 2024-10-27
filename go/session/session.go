@@ -6,6 +6,7 @@ import (
 	"github.com/jc-lab/jscp/go/payloadpb"
 	"github.com/jc-lab/jscp/go/sessionstate"
 	"github.com/pkg/errors"
+	"io"
 )
 
 type HandshakeResult struct {
@@ -18,8 +19,10 @@ type HandshakeResult struct {
 type SendFunc func(payload *payloadpb.Payload)
 
 type Session struct {
-	initiator        bool
-	sendFunc         SendFunc
+	initiator bool
+	sendFunc  SendFunc
+	recvCh    chan []byte
+
 	signatureKeyPair cryptoutil.SignaturePrivateKey
 
 	handshakeAdditionalData []byte
@@ -40,8 +43,10 @@ type Session struct {
 
 func NewSession(initiator bool, sendFunc SendFunc, signatureKeyPair cryptoutil.SignaturePrivateKey) *Session {
 	return &Session{
-		initiator:        initiator,
-		sendFunc:         sendFunc,
+		initiator: initiator,
+		sendFunc:  sendFunc,
+		recvCh:    make(chan []byte, 1),
+
 		signatureKeyPair: signatureKeyPair,
 		handshakeCh:      make(chan *HandshakeResult, 1),
 
@@ -63,6 +68,8 @@ func (s *Session) HandleReceive(payload *payloadpb.Payload) error {
 		return s.handleHello(payload.Data, false)
 	case payloadpb.PayloadType_PayloadHelloWithChangeAlgorithm:
 		return s.handleHello(payload.Data, true)
+	case payloadpb.PayloadType_PayloadEncryptedMessage:
+		return s.handleEncryptedMessage(payload.Data)
 	default:
 		return fmt.Errorf("invalid payload: %+v", payload.PayloadType)
 	}
@@ -81,6 +88,35 @@ func (s *Session) Handshake(additionalData []byte) (chan *HandshakeResult, error
 		}()
 	}
 	return s.handshakeCh, nil
+}
+
+func (s *Session) Send(data []byte) error {
+	var encryptedMessage payloadpb.EncryptedMessage
+	encryptedMessage.Data = data
+
+	raw, err := encryptedMessage.MarshalVT()
+	if err != nil {
+		return err
+	}
+
+	ciphertext, err := s.localState.EncryptWithAd(raw, nil)
+	if err != nil {
+		return err
+	}
+
+	payload := &payloadpb.Payload{}
+	payload.PayloadType = payloadpb.PayloadType_PayloadEncryptedMessage
+	payload.Data = ciphertext
+	s.sendFunc(payload)
+	return nil
+}
+
+func (s *Session) Read() ([]byte, error) {
+	data, ok := <-s.recvCh
+	if !ok {
+		return nil, io.EOF
+	}
+	return data, nil
 }
 
 func (s *Session) emitHandshakeResult() {
@@ -194,6 +230,7 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 		if err != nil {
 			return err
 		}
+		s.localState.MixKey(cipherAlgorithm, sharedKey)
 		s.remoteState.MixKey(cipherAlgorithm, sharedKey)
 		handshakeFinish = true
 	} else {
@@ -219,6 +256,22 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 			return fmt.Errorf("failed to send hello: %w", err)
 		}
 	}
+
+	return nil
+}
+
+func (s *Session) handleEncryptedMessage(payloadRaw []byte) error {
+	plaintext, err := s.remoteState.DecryptWithAd(payloadRaw, nil)
+	if err != nil {
+		return err
+	}
+
+	var encryptedMessage payloadpb.EncryptedMessage
+	if err = encryptedMessage.UnmarshalVT(plaintext); err != nil {
+		return err
+	}
+
+	s.recvCh <- encryptedMessage.Data
 
 	return nil
 }
@@ -291,6 +344,7 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 			return err
 		}
 		s.localState.MixKey(cipherAlgorithm, sharedKey)
+		s.remoteState.MixKey(cipherAlgorithm, sharedKey)
 		handshakeFinish = true
 	} else {
 		s.localState.MixHash(helloSigned.EphemeralKey)
