@@ -90,7 +90,7 @@ func (s *Session) Handshake(additionalData []byte) (chan *HandshakeResult, error
 	return s.handshakeCh, nil
 }
 
-func (s *Session) Send(data []byte) error {
+func (s *Session) Write(data []byte) error {
 	var encryptedMessage payloadpb.EncryptedMessage
 	encryptedMessage.Data = data
 

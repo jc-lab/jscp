@@ -179,29 +179,17 @@ func TestCommunication(t *testing.T) {
 			}
 
 			if tc.useData {
-				serverRecvCh := make(chan []byte, 1)
-				server.RecvFunc = func(data []byte) {
-					serverRecvCh <- data
-				}
-				clientRecvCh := make(chan []byte, 1)
-				client.RecvFunc = func(data []byte) {
-					clientRecvCh <- data
-				}
-
-				t.Cleanup(func() {
-					close(serverRecvCh)
-					close(clientRecvCh)
-				})
-
 				for i := 0; i < 1000; i++ {
 					randReader.Read(buf)
-					server.Send(buf)
-					recv := <-clientRecvCh
+					server.Write(buf)
+					recv, err := client.Read()
+					assert.NoError(t, err)
 					assert.Equal(t, buf, recv)
 
 					randReader.Read(buf)
-					client.Send(buf)
-					recv = <-serverRecvCh
+					client.Write(buf)
+					recv, err = server.Read()
+					assert.NoError(t, err)
 					assert.Equal(t, buf, recv)
 				}
 			}
