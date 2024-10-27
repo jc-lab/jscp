@@ -27,7 +27,7 @@ func (a *Ed25519Algorithm) UnmarshalPublicKey(input []byte) (SignaturePublicKey,
 	return instance, nil
 }
 
-func (a *Ed25519Algorithm) Generate() (SignaturePrivateKey, error) {
+func (a *Ed25519Algorithm) Generate() (*Ed25519PrivateKey, error) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
