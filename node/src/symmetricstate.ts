@@ -20,12 +20,18 @@ export class SymmetricState {
         this.cs = new CipherState(cipher, temp);
     }
 
+    public encryptWithAd(plaintext: Bytes, ad: Bytes): Bytes {
+        const cs = this.cs!;
+        const ciphertext = cs.cipher.seal(cs.key, cs.nonce.getBytes(), plaintext, ad);
+        cs.nonce.increment();
+        return ciphertext;
+    }
+
     public encryptAndMixHash(plaintext: Bytes, mustSecret: boolean): Bytes {
         let ciphertext: Uint8Array;
         // if key mixed
         if (this.cs) {
-            ciphertext = this.cs.cipher.seal(this.cs.key, this.cs.nonce.getBytes(), plaintext, this.h);
-            this.cs.nonce.increment();
+            ciphertext = this.encryptWithAd(plaintext, this.h);
         } else {
             if (mustSecret) {
                 throw new Error('must secret');
@@ -37,11 +43,18 @@ export class SymmetricState {
     }
 
     // throwable
+    public decryptWithAd(ciphertext: Bytes, ad: Bytes): Bytes {
+        const cs = this.cs!;
+        const plaintext = this.cs!.cipher.open(cs.key, cs.nonce.getBytes(), ciphertext, ad);
+        cs.nonce.increment();
+        return plaintext;
+    }
+
+    // throwable
     public mixHashAndDecrypt(ciphertext: Bytes): Bytes {
         if (this.cs) {
-            const plaintext = this.cs.cipher.open(this.cs.key, this.cs.nonce.getBytes(), ciphertext, this.h);
+            const plaintext = this.decryptWithAd(ciphertext, this.h);
             this.mixHash(ciphertext);
-            this.cs.nonce.increment();
             return plaintext;
         } else {
             this.mixHash(ciphertext);

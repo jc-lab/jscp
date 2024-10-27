@@ -120,6 +120,7 @@ export enum PayloadType {
   PayloadHello = 1,
   /** PayloadHelloWithChangeAlgorithm - Requests a different algorithm to be used. SymmetricState must be reset. */
   PayloadHelloWithChangeAlgorithm = 2,
+  PayloadEncryptedMessage = 10,
   UNRECOGNIZED = -1,
 }
 
@@ -134,6 +135,9 @@ export function payloadTypeFromJSON(object: any): PayloadType {
     case 2:
     case "PayloadHelloWithChangeAlgorithm":
       return PayloadType.PayloadHelloWithChangeAlgorithm;
+    case 10:
+    case "PayloadEncryptedMessage":
+      return PayloadType.PayloadEncryptedMessage;
     case -1:
     case "UNRECOGNIZED":
     default:
@@ -149,6 +153,8 @@ export function payloadTypeToJSON(object: PayloadType): string {
       return "PayloadHello";
     case PayloadType.PayloadHelloWithChangeAlgorithm:
       return "PayloadHelloWithChangeAlgorithm";
+    case PayloadType.PayloadEncryptedMessage:
+      return "PayloadEncryptedMessage";
     case PayloadType.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
@@ -221,6 +227,10 @@ export interface HelloBytes {
   signed: Uint8Array;
   /** hello_05: MixHash */
   signature: Uint8Array;
+}
+
+export interface EncryptedMessage {
+  data: Uint8Array;
 }
 
 function createBaseSignaturePublicKey(): SignaturePublicKey {
@@ -1063,6 +1073,64 @@ export const HelloBytes: MessageFns<HelloBytes> = {
     message.version = object.version ?? 0;
     message.signed = object.signed ?? new Uint8Array(0);
     message.signature = object.signature ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseEncryptedMessage(): EncryptedMessage {
+  return { data: new Uint8Array(0) };
+}
+
+export const EncryptedMessage: MessageFns<EncryptedMessage> = {
+  encode(message: EncryptedMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.data.length !== 0) {
+      writer.uint32(82).bytes(message.data);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): EncryptedMessage {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseEncryptedMessage();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 10: {
+          if (tag !== 82) {
+            break;
+          }
+
+          message.data = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): EncryptedMessage {
+    return { data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0) };
+  },
+
+  toJSON(message: EncryptedMessage): unknown {
+    const obj: any = {};
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<EncryptedMessage>, I>>(base?: I): EncryptedMessage {
+    return EncryptedMessage.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<EncryptedMessage>, I>>(object: I): EncryptedMessage {
+    const message = createBaseEncryptedMessage();
+    message.data = object.data ?? new Uint8Array(0);
     return message;
   },
 };

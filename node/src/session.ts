@@ -28,6 +28,7 @@ export interface HandshakeResult {
 
 export class Session {
     public send!: (payload: proto.Payload) => void;
+    public onData: ((payload: Bytes) => void) | null = null;
 
     private handshakePromise: ((err: Error | null) => void) | null = null;
     private localState = new SymmetricState();
@@ -54,8 +55,10 @@ export class Session {
 
     }
 
-    handshake(additional: Uint8Array | null): Promise<HandshakeResult> {
-        this.handshakeAdditionalData = additional;
+    public handshake(additional?: Uint8Array | null): Promise<HandshakeResult> {
+        if (additional) {
+            this.handshakeAdditionalData = additional;
+        }
         return new Promise<HandshakeResult>((resolve, reject) => {
             this.handshakePromise = (err) => {
                 if (err) {
@@ -73,12 +76,25 @@ export class Session {
         });
     }
 
+    public write(data: Bytes) {
+        const plaintext = proto.EncryptedMessage.encode({
+            data: data,
+        }).finish();
+        const ciphertext = this.localState.encryptWithAd(plaintext, EMPTY);
+        this.send(proto.Payload.create({
+            payloadType: proto.PayloadType.PayloadEncryptedMessage,
+            data: ciphertext,
+        }));
+    }
+
     public handleReceive(payload: proto.Payload) {
         switch (payload.payloadType) {
             case proto.PayloadType.PayloadHello:
                 return this.handleHello(payload.data, false);
             case proto.PayloadType.PayloadHelloWithChangeAlgorithm:
                 return this.handleHello(payload.data, true);
+            case proto.PayloadType.PayloadEncryptedMessage:
+                return this.handleEncryptedMessage(payload.data);
         }
     }
 
@@ -149,6 +165,7 @@ export class Session {
             if (this.ephemeralKeyPair) {
                 const cipherAlgorithm = getCipherAlgorithm(helloSigned.cipherAlgorithm);
                 const sharedKey = this.ephemeralKeyPair.private.dh(this.remoteEphemeralPublicKey);
+                this.localState.mixKey(cipherAlgorithm, sharedKey); // hello_03
                 this.remoteState.mixKey(cipherAlgorithm, sharedKey); // hello_03
                 handshakeFinish = true;
             } else {
@@ -178,6 +195,12 @@ export class Session {
                 this.handshakePromise = null;
             }
         }
+    }
+
+    private async handleEncryptedMessage(payload: Bytes) {
+        const plaintext = this.remoteState.decryptWithAd(payload, EMPTY);
+        const encryptedMessage = proto.EncryptedMessage.decode(plaintext);
+        this.onData?.call(null, encryptedMessage.data);
     }
 
     private async sendHello(changeAlgorithm: boolean) {
@@ -223,12 +246,13 @@ export class Session {
         if (this.remoteEphemeralPublicKey) {
             const sharedKey = this.ephemeralKeyPair.private.dh(this.remoteEphemeralPublicKey);
             this.localState.mixKey(cipherAlgorithm, sharedKey); // hello_03
+            this.remoteState.mixKey(cipherAlgorithm, sharedKey); // hello_03
             handshakeFinish = true;
         } else {
             this.localState.mixHash(helloSigned.ephemeralKey); // hello_03
         }
 
-            if (this.handshakeAdditionalData && this.handshakeAdditionalData.length > 0) {
+        if (this.handshakeAdditionalData && this.handshakeAdditionalData.length > 0) {
             helloSigned.additional = this.localState.encryptAndMixHash(this.handshakeAdditionalData, false); // hello_04
         }
 
