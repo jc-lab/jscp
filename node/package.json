@@ -54,7 +54,7 @@
     "@stablelib/hkdf": "^2.0.0",
     "@stablelib/sha256": "^2.0.0",
     "@stablelib/x25519": "^2.0.0",
-    "commons-crypto": "^0.3.5",
+    "commons-crypto": "^0.3.6",
     "hash.js": "^1.1.7",
     "uint8arrays": "^5.1.0"
   },

@@ -1759,7 +1759,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": ^8.11.0
     "@typescript-eslint/parser": ^8.11.0
     babel-jest: ^29.7.0
-    commons-crypto: ^0.3.5
+    commons-crypto: ^0.3.6
     eslint: ^9.13.0
     hash.js: ^1.1.7
     jest: ^29.7.0
@@ -3506,9 +3506,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"commons-crypto@npm:^0.3.5":
-  version: 0.3.5
-  resolution: "commons-crypto@npm:0.3.5"
+"commons-crypto@npm:^0.3.6":
+  version: 0.3.6
+  resolution: "commons-crypto@npm:0.3.6"
   dependencies:
     "@peculiar/asn1-ecc": ^2.3.3
     "@peculiar/asn1-pkcs8": ^2.3.3
@@ -3522,9 +3522,10 @@ __metadata:
     create-hash: ^1.2.0
     create-hmac: ^1.1.7
     elliptic: "https://github.com/openpgpjs/elliptic.git#3c323914344ab316036623e362db552d016366f9"
+    hash.js: ^1.1.7
     pvutils: ^1.0.17
     randombytes: ^2.1.0
-  checksum: b5e13c896611aeaa595664056c2968304495be6536c1c1d42408e05b5c3683cf5edc69a0abf59f590ce7352578eade308e66b299b399eea463a285dc1b2e180b
+  checksum: c6a70dfc5fdeec723697390298ad7f2dc149e780019e3b5e3c57d9c942c8197ed68fb9de1d57c0e79970c6e3bbedea074097175561ed79eaedfa0ac9b7ad84b3
   languageName: node
   linkType: hard
 
