@@ -12,25 +12,24 @@ enum CipherAlgorithm {
   CipherAesGcm  = 1;
 }
 
-enum SignatureAlgorithm {
-  SignatureUnknown = 0;
-  SignatureX509 = 1;
-  SignatureEd25519 = 2;
+enum KeyFormat {
+  KeyFormatUnknown = 0; // or Specific
+  KeyFormatX509Certificate = 1;
+  KeyFormatSubjectPublicKeyInfo = 2;
+
+  KeyFormatEd25519 = 101;
+  KeyFormatX25519 = 201;
 }
 
 enum DHAlgorithm {
   DHUnknown = 0;
-  DHX25519 = 1;
+  DHECC = 1;
+  DHX25519 = 2;
 }
 
-message SignaturePublicKey {
-  SignatureAlgorithm algorithm = 1;
-  bytes data = 2;
-}
-
-message SignaturePrivateKey {
-  SignatureAlgorithm algorithm = 1;
-  bytes data = 2;
+message PublicKey {
+  KeyFormat format = 1;
+  bytes     data   = 2;
 }
 
 message DHPublicKey {
@@ -57,18 +56,20 @@ message HelloSigned {
   repeated DHAlgorithm     support_dh     = 1; // Support DH Algorithms
   repeated CipherAlgorithm support_cipher = 2; // Support Cipher Algorithms
   CipherAlgorithm          cipher_algorithm = 3;
-  SignaturePublicKey       public_key     = 4; // hello_02: MixHash
-  DHPublicKey              ephemeral_key  = 5; // hello_03: MixHash or MixKey
-  bytes                    additional     = 6; // hello_04: EncryptAndMixHash
+  PublicKey                public_key     = 4;     // hello_02: (SignatureKey) MixHash or
+  bool                     dh_also_public_key = 5; // hello_02: MixKey(public_key, ephemeral_key) (se, es)
+  DHPublicKey              ephemeral_key  = 6; // hello_04: MixHash or MixKey
+  bytes                    additional     = 7; // hello_05: EncryptAndMixHash
 }
 
 message HelloSignedBytes {
   repeated DHAlgorithm     support_dh    = 1;
   repeated CipherAlgorithm support_cipher = 2;
   CipherAlgorithm          cipher_algorithm = 3;
-  bytes                    public_key    = 4; // SignaturePublicKey
-  bytes                    ephemeral_key = 5; // DHPublicKey
-  bytes                    additional    = 6;
+  bytes                    public_key    = 4;
+  bool                     dh_also_public_key = 5;
+  bytes                    ephemeral_key = 6; // DHPublicKey
+  bytes                    additional    = 7;
 }
 
 message Hello {
@@ -80,7 +81,7 @@ message Hello {
 message HelloBytes {
   int32 version = 1;
   bytes signed  = 2;   // marshaled HelloSigned
-  bytes signature = 3; // hello_05: MixHash
+  bytes signature = 3; // hello_06: MixHash
 }
 
 message EncryptedMessage {

@@ -18,7 +18,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-func (m *SignaturePublicKey) MarshalVT() (dAtA []byte, err error) {
+func (m *PublicKey) MarshalVT() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -31,12 +31,12 @@ func (m *SignaturePublicKey) MarshalVT() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *SignaturePublicKey) MarshalToVT(dAtA []byte) (int, error) {
+func (m *PublicKey) MarshalToVT(dAtA []byte) (int, error) {
 	size := m.SizeVT()
 	return m.MarshalToSizedBufferVT(dAtA[:size])
 }
 
-func (m *SignaturePublicKey) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+func (m *PublicKey) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m == nil {
 		return 0, nil
 	}
@@ -55,53 +55,8 @@ func (m *SignaturePublicKey) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i--
 		dAtA[i] = 0x12
 	}
-	if m.Algorithm != 0 {
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Algorithm))
-		i--
-		dAtA[i] = 0x8
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *SignaturePrivateKey) MarshalVT() (dAtA []byte, err error) {
-	if m == nil {
-		return nil, nil
-	}
-	size := m.SizeVT()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *SignaturePrivateKey) MarshalToVT(dAtA []byte) (int, error) {
-	size := m.SizeVT()
-	return m.MarshalToSizedBufferVT(dAtA[:size])
-}
-
-func (m *SignaturePrivateKey) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
-	if m == nil {
-		return 0, nil
-	}
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.unknownFields != nil {
-		i -= len(m.unknownFields)
-		copy(dAtA[i:], m.unknownFields)
-	}
-	if len(m.Data) > 0 {
-		i -= len(m.Data)
-		copy(dAtA[i:], m.Data)
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Data)))
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Algorithm != 0 {
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Algorithm))
+	if m.Format != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Format))
 		i--
 		dAtA[i] = 0x8
 	}
@@ -233,7 +188,7 @@ func (m *HelloSigned) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.Additional)
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Additional)))
 		i--
-		dAtA[i] = 0x32
+		dAtA[i] = 0x3a
 	}
 	if m.EphemeralKey != nil {
 		size, err := m.EphemeralKey.MarshalToSizedBufferVT(dAtA[:i])
@@ -243,7 +198,17 @@ func (m *HelloSigned) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i -= size
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
 		i--
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x32
+	}
+	if m.DhAlsoPublicKey {
+		i--
+		if m.DhAlsoPublicKey {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
 	}
 	if m.PublicKey != nil {
 		size, err := m.PublicKey.MarshalToSizedBufferVT(dAtA[:i])
@@ -340,14 +305,24 @@ func (m *HelloSignedBytes) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.Additional)
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Additional)))
 		i--
-		dAtA[i] = 0x32
+		dAtA[i] = 0x3a
 	}
 	if len(m.EphemeralKey) > 0 {
 		i -= len(m.EphemeralKey)
 		copy(dAtA[i:], m.EphemeralKey)
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.EphemeralKey)))
 		i--
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x32
+	}
+	if m.DhAlsoPublicKey {
+		i--
+		if m.DhAlsoPublicKey {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
 	}
 	if len(m.PublicKey) > 0 {
 		i -= len(m.PublicKey)
@@ -553,31 +528,14 @@ func (m *EncryptedMessage) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *SignaturePublicKey) SizeVT() (n int) {
+func (m *PublicKey) SizeVT() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.Algorithm != 0 {
-		n += 1 + protohelpers.SizeOfVarint(uint64(m.Algorithm))
-	}
-	l = len(m.Data)
-	if l > 0 {
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
-	}
-	n += len(m.unknownFields)
-	return n
-}
-
-func (m *SignaturePrivateKey) SizeVT() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Algorithm != 0 {
-		n += 1 + protohelpers.SizeOfVarint(uint64(m.Algorithm))
+	if m.Format != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.Format))
 	}
 	l = len(m.Data)
 	if l > 0 {
@@ -648,6 +606,9 @@ func (m *HelloSigned) SizeVT() (n int) {
 		l = m.PublicKey.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
+	if m.DhAlsoPublicKey {
+		n += 2
+	}
 	if m.EphemeralKey != nil {
 		l = m.EphemeralKey.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
@@ -686,6 +647,9 @@ func (m *HelloSignedBytes) SizeVT() (n int) {
 	l = len(m.PublicKey)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.DhAlsoPublicKey {
+		n += 2
 	}
 	l = len(m.EphemeralKey)
 	if l > 0 {
@@ -755,7 +719,7 @@ func (m *EncryptedMessage) SizeVT() (n int) {
 	return n
 }
 
-func (m *SignaturePublicKey) UnmarshalVT(dAtA []byte) error {
+func (m *PublicKey) UnmarshalVT(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -778,17 +742,17 @@ func (m *SignaturePublicKey) UnmarshalVT(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: SignaturePublicKey: wiretype end group for non-group")
+			return fmt.Errorf("proto: PublicKey: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: SignaturePublicKey: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: PublicKey: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Algorithm", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Format", wireType)
 			}
-			m.Algorithm = 0
+			m.Format = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return protohelpers.ErrIntOverflow
@@ -798,111 +762,7 @@ func (m *SignaturePublicKey) UnmarshalVT(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Algorithm |= SignatureAlgorithm(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return protohelpers.ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return protohelpers.ErrInvalidLength
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return protohelpers.ErrInvalidLength
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
-			if m.Data == nil {
-				m.Data = []byte{}
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := protohelpers.Skip(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return protohelpers.ErrInvalidLength
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *SignaturePrivateKey) UnmarshalVT(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return protohelpers.ErrIntOverflow
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: SignaturePrivateKey: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: SignaturePrivateKey: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Algorithm", wireType)
-			}
-			m.Algorithm = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return protohelpers.ErrIntOverflow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Algorithm |= SignatureAlgorithm(b&0x7F) << shift
+				m.Format |= KeyFormat(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1387,13 +1247,33 @@ func (m *HelloSigned) UnmarshalVT(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.PublicKey == nil {
-				m.PublicKey = &SignaturePublicKey{}
+				m.PublicKey = &PublicKey{}
 			}
 			if err := m.PublicKey.UnmarshalVT(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DhAlsoPublicKey", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protohelpers.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DhAlsoPublicKey = bool(v != 0)
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field EphemeralKey", wireType)
 			}
@@ -1429,7 +1309,7 @@ func (m *HelloSigned) UnmarshalVT(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 6:
+		case 7:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Additional", wireType)
 			}
@@ -1706,6 +1586,26 @@ func (m *HelloSignedBytes) UnmarshalVT(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DhAlsoPublicKey", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return protohelpers.ErrIntOverflow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DhAlsoPublicKey = bool(v != 0)
+		case 6:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field EphemeralKey", wireType)
 			}
@@ -1739,7 +1639,7 @@ func (m *HelloSignedBytes) UnmarshalVT(dAtA []byte) error {
 				m.EphemeralKey = []byte{}
 			}
 			iNdEx = postIndex
-		case 6:
+		case 7:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Additional", wireType)
 			}

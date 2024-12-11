@@ -14,14 +14,16 @@ func GetCipherAlgorithm(algorithm payloadpb.CipherAlgorithm) (CipherAlgorithm, e
 	}
 }
 
-func GetSignatureAlgorithm(algorithm payloadpb.SignatureAlgorithm) (SignatureAlgorithm, error) {
-	switch algorithm {
-	case payloadpb.SignatureAlgorithm_SignatureEd25519:
+func GetPublicAlgorithm(keyFormat payloadpb.KeyFormat) (PublicAlgorithm, error) {
+	switch keyFormat {
+	case payloadpb.KeyFormat_KeyFormatEd25519:
 		return &ed25519Algorithm, nil
-	case payloadpb.SignatureAlgorithm_SignatureX509:
+	case payloadpb.KeyFormat_KeyFormatX509Certificate:
 		return &x509Algorithm, nil
+	case payloadpb.KeyFormat_KeyFormatX25519:
+		return &x25519Algorithm, nil
 	default:
-		return nil, fmt.Errorf("invalid algorithm: %v", algorithm)
+		return nil, fmt.Errorf("invalid key format: %v", keyFormat)
 	}
 }
 

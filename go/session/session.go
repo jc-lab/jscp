@@ -12,7 +12,7 @@ import (
 type HandshakeResult struct {
 	Error error
 
-	RemotePublicKey    cryptoutil.SignaturePublicKey
+	RemotePublicKey    cryptoutil.PublicKey
 	PeerAdditionalData []byte
 }
 
@@ -23,11 +23,11 @@ type Session struct {
 	sendFunc  SendFunc
 	recvCh    chan []byte
 
-	signatureKeyPair cryptoutil.SignaturePrivateKey
+	staticKeyPair cryptoutil.StaticPrivateKey
 
 	handshakeAdditionalData []byte
 
-	remotePublicKey cryptoutil.SignaturePublicKey
+	remotePublicKey cryptoutil.PublicKey
 	handshakeResult *HandshakeResult
 	handshakeCh     chan *HandshakeResult
 
@@ -41,14 +41,14 @@ type Session struct {
 	availableCipherAlgorithms       []payloadpb.CipherAlgorithm
 }
 
-func NewSession(initiator bool, sendFunc SendFunc, signatureKeyPair cryptoutil.SignaturePrivateKey) *Session {
-	return &Session{
+func NewSession(initiator bool, sendFunc SendFunc, staticKeyPair cryptoutil.StaticPrivateKey) (*Session, error) {
+	s := &Session{
 		initiator: initiator,
 		sendFunc:  sendFunc,
 		recvCh:    make(chan []byte, 1),
 
-		signatureKeyPair: signatureKeyPair,
-		handshakeCh:      make(chan *HandshakeResult, 1),
+		staticKeyPair: staticKeyPair,
+		handshakeCh:   make(chan *HandshakeResult, 1),
 
 		localState:  sessionstate.NewSymmetricState(),
 		remoteState: sessionstate.NewSymmetricState(),
@@ -60,6 +60,16 @@ func NewSession(initiator bool, sendFunc SendFunc, signatureKeyPair cryptoutil.S
 			payloadpb.CipherAlgorithm_CipherAesGcm,
 		},
 	}
+	if s.staticKeyPair != nil && s.staticKeyPair.IsDHKey() {
+		dhKey, ok := s.staticKeyPair.(cryptoutil.DHPrivateKey)
+		if !ok {
+			return nil, errors.New("staticKey could not convert to DHPrivateKey")
+		}
+		s.availableEphemeralKeyAlgorithms = []payloadpb.DHAlgorithm{
+			dhKey.DHAlgorithm().GetType(),
+		}
+	}
+	return s, nil
 }
 
 func (s *Session) HandleReceive(payload *payloadpb.Payload) error {
@@ -129,6 +139,8 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 	var handshakeFinish bool
 	var sendRetry bool
 
+	sentEphemeralKey := s.ephemeralKeyPair != nil
+
 	var hello payloadpb.Hello
 	if err := hello.UnmarshalVT(payloadRaw); err != nil {
 		return fmt.Errorf("failed to unmarshal Hello: %w", err)
@@ -144,27 +156,6 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 		return fmt.Errorf("failed to unmarshal HelloSignedBytes: %w", err)
 	}
 
-	if hello.Signed.PublicKey != nil {
-		signatureAlgorithm, err := cryptoutil.GetSignatureAlgorithm(hello.Signed.PublicKey.Algorithm)
-		if err != nil {
-			return err
-		}
-		publicKey, err := signatureAlgorithm.UnmarshalPublicKey(hello.Signed.PublicKey.Data)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal public key: %w", err)
-		}
-
-		verified, err := publicKey.Verify(helloBytes.Signed, helloBytes.Signature)
-		if err != nil {
-			return fmt.Errorf("failed to verify signature: %w", err)
-		}
-		if !verified {
-			return errors.New("payload verification failed")
-		}
-
-		s.remotePublicKey = publicKey
-	}
-
 	// Check cipher algorithm compatibility
 	if !contains(s.availableCipherAlgorithms, hello.Signed.CipherAlgorithm) {
 		if retry {
@@ -177,6 +168,40 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 		}
 
 		sendRetry = true
+	}
+
+	cipherAlgorithm, err := cryptoutil.GetCipherAlgorithm(hello.Signed.CipherAlgorithm)
+	if err != nil {
+		return err
+	}
+
+	var remotePublicKey cryptoutil.PublicKey
+	if hello.Signed.PublicKey != nil {
+		// public : PublicKey
+		publicKeyAlgorithm, err := cryptoutil.GetPublicAlgorithm(hello.Signed.PublicKey.Format)
+		if err != nil {
+			return err
+		}
+		remotePublicKey, err = publicKeyAlgorithm.UnmarshalPublicKey(hello.Signed.PublicKey.Data)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal public key: %w", err)
+		}
+
+		if !hello.Signed.DhAlsoPublicKey {
+			sigKey, ok := remotePublicKey.(cryptoutil.SignaturePublicKey)
+			if !ok {
+				return fmt.Errorf("public key is not signature public key")
+			}
+			verified, err := sigKey.Verify(helloBytes.Signed, helloBytes.Signature)
+			if err != nil {
+				return fmt.Errorf("failed to verify signature: %w", err)
+			}
+			if !verified {
+				return errors.New("payload verification failed")
+			}
+
+			s.remotePublicKey = remotePublicKey
+		}
 	}
 
 	// Check DH algorithm compatibility
@@ -207,25 +232,39 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 	// Mix version into hash
 	s.remoteState.MixHash(encodeUint32(hello.Version))
 
-	if hello.Signed.PublicKey != nil {
-		s.remoteState.MixHash(helloSignedBytes.PublicKey)
+	if remotePublicKey != nil {
+		if hello.Signed.DhAlsoPublicKey {
+			dhKey, ok := remotePublicKey.(cryptoutil.DHPublicKey)
+			if !ok {
+				return fmt.Errorf("public key is not DH public key")
+			}
+			if sentEphemeralKey {
+				sharedKey, err := s.ephemeralKeyPair.Private.DH(dhKey)
+				if err != nil {
+					return err
+				}
+				s.remoteState.MixKey(cipherAlgorithm, sharedKey) // hello_02
+				s.localState.MixKey(cipherAlgorithm, sharedKey)  // hello_02
+			} else {
+				s.remoteState.MixHash(helloSignedBytes.PublicKey) // hello_02
+			}
+		} else {
+			s.remoteState.MixHash(helloSignedBytes.PublicKey) // hello_02
+		}
+		s.remotePublicKey = remotePublicKey
 	}
 
 	dhAlgorithm, err := cryptoutil.GetDHAlgorithm(hello.Signed.EphemeralKey.Algorithm)
 	if err != nil {
 		return err
 	}
-	remoteEphemeralPublicKey, err := dhAlgorithm.UnmarshalPublicKey(hello.Signed.EphemeralKey.Data)
+	remoteEphemeralPublicKey, err := dhAlgorithm.UnmarshalDHPublicKey(hello.Signed.EphemeralKey.Data)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal ephemeral public key: %w", err)
 	}
 	s.remoteEphemeralPublicKey = remoteEphemeralPublicKey
 
-	if s.ephemeralKeyPair != nil {
-		cipherAlgorithm, err := cryptoutil.GetCipherAlgorithm(hello.Signed.CipherAlgorithm)
-		if err != nil {
-			return err
-		}
+	if sentEphemeralKey {
 		sharedKey, err := s.ephemeralKeyPair.Private.DH(s.remoteEphemeralPublicKey)
 		if err != nil {
 			return err
@@ -293,7 +332,7 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 		Signed:    nil,
 		Signature: nil,
 	}
-	s.localState.MixHash(encodeUint32(hello.Version))
+	s.localState.MixHash(encodeUint32(hello.Version)) // hello_01
 
 	helloSigned := &payloadpb.HelloSignedBytes{
 		SupportDh: []payloadpb.DHAlgorithm{
@@ -308,8 +347,8 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 		Additional:      s.handshakeAdditionalData,
 	}
 
-	if s.signatureKeyPair != nil {
-		publicKeyProto, err := s.signatureKeyPair.GetPublic().MarshalToProto()
+	if s.staticKeyPair != nil {
+		publicKeyProto, err := s.staticKeyPair.GetPublic().MarshalToProto()
 		if err != nil {
 			return err
 		}
@@ -317,7 +356,26 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 		if err != nil {
 			return err
 		}
-		s.localState.MixHash(helloSigned.PublicKey)
+
+		if s.staticKeyPair.IsSignatureKey() {
+			s.localState.MixHash(helloSigned.PublicKey) // hello_02
+		} else if s.staticKeyPair.IsDHKey() {
+			helloSigned.DhAlsoPublicKey = true
+			if s.remoteEphemeralPublicKey == nil {
+				s.localState.MixHash(helloSigned.PublicKey) // hello_02
+			} else {
+				dhKey, ok := s.staticKeyPair.(cryptoutil.DHPrivateKey)
+				if !ok {
+					return fmt.Errorf("static key is not DHPrivateKey")
+				}
+				sharedKey, err := dhKey.DH(s.remoteEphemeralPublicKey)
+				if err != nil {
+					return err
+				}
+				s.localState.MixKey(cipherAlgorithm, sharedKey)  // hello_02
+				s.remoteState.MixKey(cipherAlgorithm, sharedKey) // hello_02
+			}
+		}
 	}
 
 	if s.ephemeralKeyPair == nil {
@@ -343,15 +401,15 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 		if err != nil {
 			return err
 		}
-		s.localState.MixKey(cipherAlgorithm, sharedKey)
-		s.remoteState.MixKey(cipherAlgorithm, sharedKey)
+		s.localState.MixKey(cipherAlgorithm, sharedKey)  // hello_04
+		s.remoteState.MixKey(cipherAlgorithm, sharedKey) // hello_04
 		handshakeFinish = true
 	} else {
-		s.localState.MixHash(helloSigned.EphemeralKey)
+		s.localState.MixHash(helloSigned.EphemeralKey) // hello_04
 	}
 
 	if len(s.handshakeAdditionalData) > 0 {
-		encrypted, err := s.localState.EncryptAndMixHash(s.handshakeAdditionalData, false)
+		encrypted, err := s.localState.EncryptAndMixHash(s.handshakeAdditionalData, false) // hello_05
 		if err != nil {
 			return fmt.Errorf("failed to encrypt additional data: %w", err)
 		}
@@ -364,15 +422,17 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 	}
 	hello.Signed = signedBytes
 
-	if s.signatureKeyPair != nil {
-		if priv, ok := s.signatureKeyPair.(interface{ Sign([]byte) ([]byte, error) }); ok {
-			signature, err := priv.Sign(hello.Signed)
-			if err != nil {
-				return fmt.Errorf("failed to sign hello: %w", err)
-			}
-			hello.Signature = signature
-			s.localState.MixHash(hello.Signature)
+	if s.staticKeyPair != nil && s.staticKeyPair.IsSignatureKey() {
+		signatureKey, ok := s.staticKeyPair.(cryptoutil.SignaturePrivateKey)
+		if !ok {
+			return fmt.Errorf("static key is not signable")
 		}
+		signature, err := signatureKey.Sign(hello.Signed)
+		if err != nil {
+			return fmt.Errorf("failed to sign hello: %w", err)
+		}
+		hello.Signature = signature
+		s.localState.MixHash(hello.Signature) // hello_06
 	}
 
 	if handshakeFinish {

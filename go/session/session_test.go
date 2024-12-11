@@ -18,6 +18,7 @@ func TestCommunication(t *testing.T) {
 		clientAdditional []byte
 		expectAdditional bool
 		useSignature     bool
+		useDHSignature   bool
 		useData          bool
 	}{
 		{
@@ -34,19 +35,37 @@ func TestCommunication(t *testing.T) {
 		},
 
 		{
-			name:             "static - static - without additional",
+			name:             "static (signature) - static (signature) - without additional",
 			serverAdditional: nil,
 			clientAdditional: nil,
 			expectAdditional: false,
 			useSignature:     true,
 		},
 		{
-			name:             "static - static - with additional",
+			name:             "static (signature) - static (signature) - with additional",
 			serverAdditional: []byte("i am server"),
 			clientAdditional: []byte("i am client"),
 			expectAdditional: true,
 			useSignature:     true,
 		},
+
+		{
+			name:             "static (dh) - static (dh) - without additional",
+			serverAdditional: nil,
+			clientAdditional: nil,
+			expectAdditional: false,
+			useSignature:     true,
+			useDHSignature:   true,
+		},
+		{
+			name:             "static (dh) - static (dh) - with additional",
+			serverAdditional: []byte("i am server"),
+			clientAdditional: []byte("i am client"),
+			expectAdditional: true,
+			useSignature:     true,
+			useDHSignature:   true,
+		},
+
 		{
 			name:             "data communication",
 			serverAdditional: []byte("i am server"),
@@ -57,6 +76,9 @@ func TestCommunication(t *testing.T) {
 		},
 	}
 
+	ed25519Algorithm := &cryptoutil.Ed25519Algorithm{}
+	x25519Algorithm := &cryptoutil.X25519Algorithm{}
+
 	var seed [32]byte
 	srand.Reader.Read(seed[:])
 	randReader := rand.NewChaCha8(seed)
@@ -64,17 +86,29 @@ func TestCommunication(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var serverPrivateKey cryptoutil.SignaturePrivateKey
-			var clientPrivateKey cryptoutil.SignaturePrivateKey
+			var serverPrivateKey cryptoutil.StaticPrivateKey
+			var clientPrivateKey cryptoutil.StaticPrivateKey
 
 			if tc.useSignature {
-				var err error
-				ed25519Algorithm := &cryptoutil.Ed25519Algorithm{}
-				if serverPrivateKey, err = ed25519Algorithm.Generate(); err != nil {
-					t.Fatal(err)
-				}
-				if clientPrivateKey, err = ed25519Algorithm.Generate(); err != nil {
-					t.Fatal(err)
+				if tc.useDHSignature {
+					if keyPair, err := x25519Algorithm.Generate(); err != nil {
+						t.Fatal(err)
+					} else {
+						serverPrivateKey = keyPair.Private
+					}
+					if keyPair, err := x25519Algorithm.Generate(); err != nil {
+						t.Fatal(err)
+					} else {
+						clientPrivateKey = keyPair.Private
+					}
+				} else {
+					var err error
+					if serverPrivateKey, err = ed25519Algorithm.Generate(); err != nil {
+						t.Fatal(err)
+					}
+					if clientPrivateKey, err = ed25519Algorithm.Generate(); err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
 
@@ -83,13 +117,19 @@ func TestCommunication(t *testing.T) {
 			serverToClient := make(chan *payloadpb.Payload, 1)
 
 			// Create server and client with their respective send functions
-			server := NewSession(false, func(payload *payloadpb.Payload) {
+			server, err := NewSession(false, func(payload *payloadpb.Payload) {
 				serverToClient <- payload
 			}, serverPrivateKey)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			client := NewSession(true, func(payload *payloadpb.Payload) {
+			client, err := NewSession(true, func(payload *payloadpb.Payload) {
 				clientToServer <- payload
 			}, clientPrivateKey)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			// Start goroutines to handle message passing
 			go func() {
@@ -201,7 +241,7 @@ func TestCommunication(t *testing.T) {
 	}
 }
 
-func compareSignaturePublicKey(t *testing.T, expected cryptoutil.SignaturePublicKey, actual cryptoutil.SignaturePublicKey) {
+func compareSignaturePublicKey(t *testing.T, expected cryptoutil.PublicKey, actual cryptoutil.PublicKey) {
 	aProto, err := expected.MarshalToProto()
 	if err != nil {
 		t.Fatal(err)
