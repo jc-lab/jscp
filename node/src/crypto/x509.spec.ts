@@ -18,17 +18,17 @@ Trtlw+JXDdWORMNOdH78sybZ1bBk5bQIcUIVcNUSRs7ZaWyCSlHEPDSh
 -----END PRIVATE KEY-----`;
 
     const x509Algorithm = new X509SignatureAlgorithm();
-    const sampleP256PublicKey = x509Algorithm.unmarshalPublicKey(SAMPLE_P256_DER_CERT);
-    const sampleP256PrivateKey = new X509Pkcs8PrivateKey(cc.createPrivateKey({
-        format: 'pem',
-        key: SAMPLE_P256_PEM_KEY,
-    }));
-
 
     it('sign and verify', async () => {
-       const data = Buffer.from('HELLO WORLD');
-       const signature = await sampleP256PrivateKey.sign(data);
-       expect(await sampleP256PublicKey.verify(data, signature)).toBeTruthy();
-       expect(await sampleP256PublicKey.verify(Buffer.from('NOT HELLO'), signature)).toBeFalsy();
-   });
+        const sampleP256PublicKey = await x509Algorithm.unmarshalPublicKey(SAMPLE_P256_DER_CERT);
+        const sampleP256PrivateKey = new X509Pkcs8PrivateKey(sampleP256PublicKey, cc.createPrivateKey({
+            format: 'pem',
+            key: SAMPLE_P256_PEM_KEY,
+        }));
+
+        const data = Buffer.from('HELLO WORLD');
+        const signature = await sampleP256PrivateKey.sign(data);
+        expect(await sampleP256PublicKey.verify(data, signature)).toBeTruthy();
+        expect(await sampleP256PublicKey.verify(Buffer.from('NOT HELLO'), signature)).toBeFalsy();
+    });
 });

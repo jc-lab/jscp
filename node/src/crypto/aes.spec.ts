@@ -1,5 +1,5 @@
-import { AesGcmCipher } from './aes';
 import * as hex from '@stablelib/hex';
+import { AesGcmCipher } from './aes';
 
 interface TestVector {
     description: string;
@@ -43,7 +43,7 @@ describe('AesGcmCipher', () => {
 
     describe('seal and open with test vectors', () => {
         testVectors.forEach((vector, index) => {
-            it(`should correctly encrypt and decrypt ${vector.description}`, () => {
+            it(`should correctly encrypt and decrypt ${vector.description}`, async () => {
                 const key = hex.decode(vector.key);
                 const nonce = hex.decode(vector.nonce);
                 const plaintext = hex.decode(vector.plaintext);
@@ -51,11 +51,11 @@ describe('AesGcmCipher', () => {
                 const expectedCiphertext = hex.decode(vector.ciphertext);
 
                 // Test encryption
-                const ciphertext = cipher.seal(key, nonce, plaintext, ad);
+                const ciphertext = await cipher.seal(key, nonce, plaintext, ad);
                 expect(ciphertext).toEqual(expectedCiphertext);
 
                 // Test decryption
-                const decrypted = cipher.open(key, nonce, ciphertext, ad);
+                const decrypted = await cipher.open(key, nonce, ciphertext, ad);
                 expect(decrypted).toEqual(plaintext);
             });
         });
@@ -64,46 +64,40 @@ describe('AesGcmCipher', () => {
     describe('error cases', () => {
         const validVector = testVectors[2]; // Using Test Case 3 as base for error tests
 
-        it('should throw error when decrypting with wrong AD', () => {
+        it('should throw error when decrypting with wrong AD', async () => {
             const key = hex.decode(validVector.key);
             const nonce = hex.decode(validVector.nonce);
             const plaintext = hex.decode(validVector.plaintext);
             const ad = hex.decode(validVector.ad);
             const wrongAd = hex.decode('feedfacedeadbeeffeedfacedeadbeefabaddad3'); // Changed last byte
 
-            const ciphertext = cipher.seal(key, nonce, plaintext, ad);
+            const ciphertext = await cipher.seal(key, nonce, plaintext, ad);
 
-            expect(() => {
-                cipher.open(key, nonce, ciphertext, wrongAd);
-            }).toThrow();
+            expect(cipher.open(key, nonce, ciphertext, wrongAd)).rejects.toThrow('decrypt failed');
         });
 
-        it('should throw error when decrypting with wrong key', () => {
+        it('should throw error when decrypting with wrong key', async () => {
             const key = hex.decode(validVector.key);
             const wrongKey = hex.decode(validVector.key.slice(0, -2) + 'ff'); // Change last byte of key
             const nonce = hex.decode(validVector.nonce);
             const plaintext = hex.decode(validVector.plaintext);
             const ad = hex.decode(validVector.ad);
 
-            const ciphertext = cipher.seal(key, nonce, plaintext, ad);
+            const ciphertext = await cipher.seal(key, nonce, plaintext, ad);
 
-            expect(() => {
-                cipher.open(wrongKey, nonce, ciphertext, ad);
-            }).toThrow();
+            expect(cipher.open(wrongKey, nonce, ciphertext, ad)).rejects.toThrow('decrypt failed');
         });
 
-        it('should throw error when decrypting with wrong nonce', () => {
+        it('should throw error when decrypting with wrong nonce', async () => {
             const key = hex.decode(validVector.key);
             const nonce = hex.decode(validVector.nonce);
             const wrongNonce = hex.decode(validVector.nonce.slice(0, -2) + 'ff'); // Change last byte of nonce
             const plaintext = hex.decode(validVector.plaintext);
             const ad = hex.decode(validVector.ad);
 
-            const ciphertext = cipher.seal(key, nonce, plaintext, ad);
+            const ciphertext = await cipher.seal(key, nonce, plaintext, ad);
 
-            expect(() => {
-                cipher.open(key, wrongNonce, ciphertext, ad);
-            }).toThrow();
+            expect(cipher.open(key, wrongNonce, ciphertext, ad)).rejects.toThrow('decrypt failed');
         });
     });
 });

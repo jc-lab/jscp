@@ -9,6 +9,8 @@ import {
 } from './types';
 import * as proto from '../proto';
 
+const symX25519PublicKey = Symbol.for('X25519PublicKey');
+
 export class X25519PrivateKey implements DHPrivateKey {
     constructor(
         private readonly key: Uint8Array,
@@ -52,7 +54,7 @@ export class X25519PrivateKey implements DHPrivateKey {
     }
 
     async dh(peerKey: DHPublicKey): Promise<Uint8Array> {
-        if (!(peerKey instanceof X25519PublicKey)) {
+        if (!X25519PublicKey.checkInstance(peerKey)) {
             throw new Error('peerKey is not X25519PublicKey');
         }
         return x25519.sharedKey(this.key, peerKey.key);
@@ -70,6 +72,14 @@ export class X25519PublicKey implements DHPublicKey {
         if (key.length != x25519.PUBLIC_KEY_LENGTH) {
             throw new Error(`invalid key (size=${key.length})`);
         }
+    }
+
+    get [symX25519PublicKey](): boolean {
+         return true;
+    }
+
+    static checkInstance(obj: any): obj is X25519PublicKey {
+        return obj[symX25519PublicKey] === true;
     }
 
     // Key
@@ -116,7 +126,7 @@ export class X25519Algorithm implements DHAlgorithm {
         return proto.KeyFormat.KeyFormatX25519;
     }
 
-    async unmarshalPublicKey(input: Uint8Array): Promise<PublicKey> {
+    async unmarshalPublicKey(input: Uint8Array): Promise<X25519PublicKey> {
         return new X25519PublicKey(input);
     }
 

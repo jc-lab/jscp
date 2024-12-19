@@ -1,5 +1,5 @@
 import * as hex from '@stablelib/hex';
-import {hkdf} from "./hkdf";
+import { hkdf } from './hkdf';
 
 describe('hkdf', () => {
     it('test vector', () => {
