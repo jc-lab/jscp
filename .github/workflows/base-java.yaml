@@ -1,0 +1,36 @@
+name: Test Base For Golang
+on:
+  workflow_call:
+    upload:
+      type: boolean
+      required: false
+
+defaults:
+  run:  # use bash for all operating systems unless overridden
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+          cache: 'gradle'
+
+      - name: Build And Test
+        run: |
+          cd java
+          chmod +x gradlew
+          ./gradlew build test
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ inputs.upload }}
+        with:
+          name: java-build
+          path: |
+            java/build/
