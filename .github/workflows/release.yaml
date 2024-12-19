@@ -52,7 +52,7 @@ jobs:
       upload: true
   java-release:
     needs:
-      - node-build
+      - java-build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
