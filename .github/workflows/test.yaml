@@ -23,4 +23,3 @@ jobs:
     uses: ./.github/workflows/base-go.yaml
     with:
       go-version: 1.22
-      upload: false
