@@ -1,11 +1,8 @@
-name: Build And Test Base
+name: Build And Test Base For Node
 on:
   workflow_call:
     inputs:
       node-version:
-        type: string
-        required: true
-      go-version:
         type: string
         required: true
       upload:
@@ -22,10 +19,6 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ inputs.go-version }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
