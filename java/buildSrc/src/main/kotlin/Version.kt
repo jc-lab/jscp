@@ -21,6 +21,7 @@ object Version {
     val NETTY = "4.1.114.Final"
     val SPRING_FW = "6.1.13"
     val PROTOBUF = "4.28.2"
+    val BOUNCY_CASLTE = "1.78.1"
 
     val PROJECT by lazy { getVersionFromGit() }
 

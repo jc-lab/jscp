@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package kr.jclab.jscp.payload;
-option java_multiple_files = true;
+option java_multiple_files = false;
 option java_package = "kr.jclab.jscp.payload";
 option java_outer_classname = "JcspPayload";
 option go_package = "github.com/jc-lab/jcsp/go/payloadpb";
