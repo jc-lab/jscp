@@ -78,8 +78,12 @@ func (k *X25519PrivateKey) Algorithm() PublicAlgorithm {
 	return &x25519Algorithm
 }
 
-func (k *X25519PrivateKey) DHAlgorithm() DHAlgorithm {
+func (k *X25519PrivateKey) GetDHAlgorithm() DHAlgorithm {
 	return &x25519Algorithm
+}
+
+func (k *X25519PrivateKey) GetDHAlgorithmProto() payloadpb.DHAlgorithm {
+	return payloadpb.DHAlgorithm_DHX25519
 }
 
 func (k *X25519PrivateKey) DH(peerKey DHPublicKey) ([]byte, error) {
@@ -104,6 +108,14 @@ func (k *X25519PublicKey) IsSignatureKey() bool {
 
 func (k *X25519PublicKey) Algorithm() PublicAlgorithm {
 	return &x25519Algorithm
+}
+
+func (k *X25519PublicKey) GetDHAlgorithm() DHAlgorithm {
+	return &x25519Algorithm
+}
+
+func (k *X25519PublicKey) GetDHAlgorithmProto() payloadpb.DHAlgorithm {
+	return payloadpb.DHAlgorithm_DHX25519
 }
 
 func (k *X25519PublicKey) Marshal() []byte {

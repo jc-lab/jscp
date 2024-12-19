@@ -43,40 +43,53 @@ export function cipherAlgorithmToJSON(object: CipherAlgorithm): string {
   }
 }
 
-export enum SignatureAlgorithm {
-  SignatureUnknown = 0,
-  SignatureX509 = 1,
-  SignatureEd25519 = 2,
+export enum KeyFormat {
+  /** KeyFormatUnknown - or Specific */
+  KeyFormatUnknown = 0,
+  KeyFormatX509Certificate = 1,
+  KeyFormatSubjectPublicKeyInfo = 2,
+  KeyFormatEd25519 = 101,
+  KeyFormatX25519 = 201,
   UNRECOGNIZED = -1,
 }
 
-export function signatureAlgorithmFromJSON(object: any): SignatureAlgorithm {
+export function keyFormatFromJSON(object: any): KeyFormat {
   switch (object) {
     case 0:
-    case "SignatureUnknown":
-      return SignatureAlgorithm.SignatureUnknown;
+    case "KeyFormatUnknown":
+      return KeyFormat.KeyFormatUnknown;
     case 1:
-    case "SignatureX509":
-      return SignatureAlgorithm.SignatureX509;
+    case "KeyFormatX509Certificate":
+      return KeyFormat.KeyFormatX509Certificate;
     case 2:
-    case "SignatureEd25519":
-      return SignatureAlgorithm.SignatureEd25519;
+    case "KeyFormatSubjectPublicKeyInfo":
+      return KeyFormat.KeyFormatSubjectPublicKeyInfo;
+    case 101:
+    case "KeyFormatEd25519":
+      return KeyFormat.KeyFormatEd25519;
+    case 201:
+    case "KeyFormatX25519":
+      return KeyFormat.KeyFormatX25519;
     case -1:
     case "UNRECOGNIZED":
     default:
-      return SignatureAlgorithm.UNRECOGNIZED;
+      return KeyFormat.UNRECOGNIZED;
   }
 }
 
-export function signatureAlgorithmToJSON(object: SignatureAlgorithm): string {
+export function keyFormatToJSON(object: KeyFormat): string {
   switch (object) {
-    case SignatureAlgorithm.SignatureUnknown:
-      return "SignatureUnknown";
-    case SignatureAlgorithm.SignatureX509:
-      return "SignatureX509";
-    case SignatureAlgorithm.SignatureEd25519:
-      return "SignatureEd25519";
-    case SignatureAlgorithm.UNRECOGNIZED:
+    case KeyFormat.KeyFormatUnknown:
+      return "KeyFormatUnknown";
+    case KeyFormat.KeyFormatX509Certificate:
+      return "KeyFormatX509Certificate";
+    case KeyFormat.KeyFormatSubjectPublicKeyInfo:
+      return "KeyFormatSubjectPublicKeyInfo";
+    case KeyFormat.KeyFormatEd25519:
+      return "KeyFormatEd25519";
+    case KeyFormat.KeyFormatX25519:
+      return "KeyFormatX25519";
+    case KeyFormat.UNRECOGNIZED:
     default:
       return "UNRECOGNIZED";
   }
@@ -84,7 +97,8 @@ export function signatureAlgorithmToJSON(object: SignatureAlgorithm): string {
 
 export enum DHAlgorithm {
   DHUnknown = 0,
-  DHX25519 = 1,
+  DHECC = 1,
+  DHX25519 = 2,
   UNRECOGNIZED = -1,
 }
 
@@ -94,6 +108,9 @@ export function dHAlgorithmFromJSON(object: any): DHAlgorithm {
     case "DHUnknown":
       return DHAlgorithm.DHUnknown;
     case 1:
+    case "DHECC":
+      return DHAlgorithm.DHECC;
+    case 2:
     case "DHX25519":
       return DHAlgorithm.DHX25519;
     case -1:
@@ -107,6 +124,8 @@ export function dHAlgorithmToJSON(object: DHAlgorithm): string {
   switch (object) {
     case DHAlgorithm.DHUnknown:
       return "DHUnknown";
+    case DHAlgorithm.DHECC:
+      return "DHECC";
     case DHAlgorithm.DHX25519:
       return "DHX25519";
     case DHAlgorithm.UNRECOGNIZED:
@@ -161,13 +180,8 @@ export function payloadTypeToJSON(object: PayloadType): string {
   }
 }
 
-export interface SignaturePublicKey {
-  algorithm: SignatureAlgorithm;
-  data: Uint8Array;
-}
-
-export interface SignaturePrivateKey {
-  algorithm: SignatureAlgorithm;
+export interface PublicKey {
+  format: KeyFormat;
   data: Uint8Array;
 }
 
@@ -187,15 +201,17 @@ export interface HelloSigned {
   /** Support Cipher Algorithms */
   supportCipher: CipherAlgorithm[];
   cipherAlgorithm: CipherAlgorithm;
-  /** hello_02: MixHash */
+  /** hello_02: (SignatureKey) MixHash or */
   publicKey:
-    | SignaturePublicKey
+    | PublicKey
     | undefined;
-  /** hello_03: MixHash or MixKey */
+  /** hello_02: MixKey(public_key, ephemeral_key) (se, es) */
+  dhAlsoPublicKey: boolean;
+  /** hello_04: MixHash or MixKey */
   ephemeralKey:
     | DHPublicKey
     | undefined;
-  /** hello_04: EncryptAndMixHash */
+  /** hello_05: EncryptAndMixHash */
   additional: Uint8Array;
 }
 
@@ -203,8 +219,8 @@ export interface HelloSignedBytes {
   supportDh: DHAlgorithm[];
   supportCipher: CipherAlgorithm[];
   cipherAlgorithm: CipherAlgorithm;
-  /** SignaturePublicKey */
   publicKey: Uint8Array;
+  dhAlsoPublicKey: boolean;
   /** DHPublicKey */
   ephemeralKey: Uint8Array;
   additional: Uint8Array;
@@ -225,7 +241,7 @@ export interface HelloBytes {
   version: number;
   /** marshaled HelloSigned */
   signed: Uint8Array;
-  /** hello_05: MixHash */
+  /** hello_06: MixHash */
   signature: Uint8Array;
 }
 
@@ -233,14 +249,14 @@ export interface EncryptedMessage {
   data: Uint8Array;
 }
 
-function createBaseSignaturePublicKey(): SignaturePublicKey {
-  return { algorithm: 0, data: new Uint8Array(0) };
+function createBasePublicKey(): PublicKey {
+  return { format: 0, data: new Uint8Array(0) };
 }
 
-export const SignaturePublicKey: MessageFns<SignaturePublicKey> = {
-  encode(message: SignaturePublicKey, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.algorithm !== 0) {
-      writer.uint32(8).int32(message.algorithm);
+export const PublicKey: MessageFns<PublicKey> = {
+  encode(message: PublicKey, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.format !== 0) {
+      writer.uint32(8).int32(message.format);
     }
     if (message.data.length !== 0) {
       writer.uint32(18).bytes(message.data);
@@ -248,10 +264,10 @@ export const SignaturePublicKey: MessageFns<SignaturePublicKey> = {
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): SignaturePublicKey {
+  decode(input: BinaryReader | Uint8Array, length?: number): PublicKey {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSignaturePublicKey();
+    const message = createBasePublicKey();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -260,7 +276,7 @@ export const SignaturePublicKey: MessageFns<SignaturePublicKey> = {
             break;
           }
 
-          message.algorithm = reader.int32() as any;
+          message.format = reader.int32() as any;
           continue;
         }
         case 2: {
@@ -280,17 +296,17 @@ export const SignaturePublicKey: MessageFns<SignaturePublicKey> = {
     return message;
   },
 
-  fromJSON(object: any): SignaturePublicKey {
+  fromJSON(object: any): PublicKey {
     return {
-      algorithm: isSet(object.algorithm) ? signatureAlgorithmFromJSON(object.algorithm) : 0,
+      format: isSet(object.format) ? keyFormatFromJSON(object.format) : 0,
       data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
     };
   },
 
-  toJSON(message: SignaturePublicKey): unknown {
+  toJSON(message: PublicKey): unknown {
     const obj: any = {};
-    if (message.algorithm !== 0) {
-      obj.algorithm = signatureAlgorithmToJSON(message.algorithm);
+    if (message.format !== 0) {
+      obj.format = keyFormatToJSON(message.format);
     }
     if (message.data.length !== 0) {
       obj.data = base64FromBytes(message.data);
@@ -298,88 +314,12 @@ export const SignaturePublicKey: MessageFns<SignaturePublicKey> = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SignaturePublicKey>, I>>(base?: I): SignaturePublicKey {
-    return SignaturePublicKey.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<PublicKey>, I>>(base?: I): PublicKey {
+    return PublicKey.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SignaturePublicKey>, I>>(object: I): SignaturePublicKey {
-    const message = createBaseSignaturePublicKey();
-    message.algorithm = object.algorithm ?? 0;
-    message.data = object.data ?? new Uint8Array(0);
-    return message;
-  },
-};
-
-function createBaseSignaturePrivateKey(): SignaturePrivateKey {
-  return { algorithm: 0, data: new Uint8Array(0) };
-}
-
-export const SignaturePrivateKey: MessageFns<SignaturePrivateKey> = {
-  encode(message: SignaturePrivateKey, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.algorithm !== 0) {
-      writer.uint32(8).int32(message.algorithm);
-    }
-    if (message.data.length !== 0) {
-      writer.uint32(18).bytes(message.data);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): SignaturePrivateKey {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseSignaturePrivateKey();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
-
-          message.algorithm = reader.int32() as any;
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.data = reader.bytes();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): SignaturePrivateKey {
-    return {
-      algorithm: isSet(object.algorithm) ? signatureAlgorithmFromJSON(object.algorithm) : 0,
-      data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
-    };
-  },
-
-  toJSON(message: SignaturePrivateKey): unknown {
-    const obj: any = {};
-    if (message.algorithm !== 0) {
-      obj.algorithm = signatureAlgorithmToJSON(message.algorithm);
-    }
-    if (message.data.length !== 0) {
-      obj.data = base64FromBytes(message.data);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<SignaturePrivateKey>, I>>(base?: I): SignaturePrivateKey {
-    return SignaturePrivateKey.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<SignaturePrivateKey>, I>>(object: I): SignaturePrivateKey {
-    const message = createBaseSignaturePrivateKey();
-    message.algorithm = object.algorithm ?? 0;
+  fromPartial<I extends Exact<DeepPartial<PublicKey>, I>>(object: I): PublicKey {
+    const message = createBasePublicKey();
+    message.format = object.format ?? 0;
     message.data = object.data ?? new Uint8Array(0);
     return message;
   },
@@ -543,6 +483,7 @@ function createBaseHelloSigned(): HelloSigned {
     supportCipher: [],
     cipherAlgorithm: 0,
     publicKey: undefined,
+    dhAlsoPublicKey: false,
     ephemeralKey: undefined,
     additional: new Uint8Array(0),
   };
@@ -564,13 +505,16 @@ export const HelloSigned: MessageFns<HelloSigned> = {
       writer.uint32(24).int32(message.cipherAlgorithm);
     }
     if (message.publicKey !== undefined) {
-      SignaturePublicKey.encode(message.publicKey, writer.uint32(34).fork()).join();
+      PublicKey.encode(message.publicKey, writer.uint32(34).fork()).join();
+    }
+    if (message.dhAlsoPublicKey !== false) {
+      writer.uint32(40).bool(message.dhAlsoPublicKey);
     }
     if (message.ephemeralKey !== undefined) {
-      DHPublicKey.encode(message.ephemeralKey, writer.uint32(42).fork()).join();
+      DHPublicKey.encode(message.ephemeralKey, writer.uint32(50).fork()).join();
     }
     if (message.additional.length !== 0) {
-      writer.uint32(50).bytes(message.additional);
+      writer.uint32(58).bytes(message.additional);
     }
     return writer;
   },
@@ -631,19 +575,27 @@ export const HelloSigned: MessageFns<HelloSigned> = {
             break;
           }
 
-          message.publicKey = SignaturePublicKey.decode(reader, reader.uint32());
+          message.publicKey = PublicKey.decode(reader, reader.uint32());
           continue;
         }
         case 5: {
-          if (tag !== 42) {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.dhAlsoPublicKey = reader.bool();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
             break;
           }
 
           message.ephemeralKey = DHPublicKey.decode(reader, reader.uint32());
           continue;
         }
-        case 6: {
-          if (tag !== 50) {
+        case 7: {
+          if (tag !== 58) {
             break;
           }
 
@@ -668,7 +620,8 @@ export const HelloSigned: MessageFns<HelloSigned> = {
         ? object.supportCipher.map((e: any) => cipherAlgorithmFromJSON(e))
         : [],
       cipherAlgorithm: isSet(object.cipherAlgorithm) ? cipherAlgorithmFromJSON(object.cipherAlgorithm) : 0,
-      publicKey: isSet(object.publicKey) ? SignaturePublicKey.fromJSON(object.publicKey) : undefined,
+      publicKey: isSet(object.publicKey) ? PublicKey.fromJSON(object.publicKey) : undefined,
+      dhAlsoPublicKey: isSet(object.dhAlsoPublicKey) ? globalThis.Boolean(object.dhAlsoPublicKey) : false,
       ephemeralKey: isSet(object.ephemeralKey) ? DHPublicKey.fromJSON(object.ephemeralKey) : undefined,
       additional: isSet(object.additional) ? bytesFromBase64(object.additional) : new Uint8Array(0),
     };
@@ -686,7 +639,10 @@ export const HelloSigned: MessageFns<HelloSigned> = {
       obj.cipherAlgorithm = cipherAlgorithmToJSON(message.cipherAlgorithm);
     }
     if (message.publicKey !== undefined) {
-      obj.publicKey = SignaturePublicKey.toJSON(message.publicKey);
+      obj.publicKey = PublicKey.toJSON(message.publicKey);
+    }
+    if (message.dhAlsoPublicKey !== false) {
+      obj.dhAlsoPublicKey = message.dhAlsoPublicKey;
     }
     if (message.ephemeralKey !== undefined) {
       obj.ephemeralKey = DHPublicKey.toJSON(message.ephemeralKey);
@@ -706,8 +662,9 @@ export const HelloSigned: MessageFns<HelloSigned> = {
     message.supportCipher = object.supportCipher?.map((e) => e) || [];
     message.cipherAlgorithm = object.cipherAlgorithm ?? 0;
     message.publicKey = (object.publicKey !== undefined && object.publicKey !== null)
-      ? SignaturePublicKey.fromPartial(object.publicKey)
+      ? PublicKey.fromPartial(object.publicKey)
       : undefined;
+    message.dhAlsoPublicKey = object.dhAlsoPublicKey ?? false;
     message.ephemeralKey = (object.ephemeralKey !== undefined && object.ephemeralKey !== null)
       ? DHPublicKey.fromPartial(object.ephemeralKey)
       : undefined;
@@ -722,6 +679,7 @@ function createBaseHelloSignedBytes(): HelloSignedBytes {
     supportCipher: [],
     cipherAlgorithm: 0,
     publicKey: new Uint8Array(0),
+    dhAlsoPublicKey: false,
     ephemeralKey: new Uint8Array(0),
     additional: new Uint8Array(0),
   };
@@ -745,11 +703,14 @@ export const HelloSignedBytes: MessageFns<HelloSignedBytes> = {
     if (message.publicKey.length !== 0) {
       writer.uint32(34).bytes(message.publicKey);
     }
+    if (message.dhAlsoPublicKey !== false) {
+      writer.uint32(40).bool(message.dhAlsoPublicKey);
+    }
     if (message.ephemeralKey.length !== 0) {
-      writer.uint32(42).bytes(message.ephemeralKey);
+      writer.uint32(50).bytes(message.ephemeralKey);
     }
     if (message.additional.length !== 0) {
-      writer.uint32(50).bytes(message.additional);
+      writer.uint32(58).bytes(message.additional);
     }
     return writer;
   },
@@ -814,15 +775,23 @@ export const HelloSignedBytes: MessageFns<HelloSignedBytes> = {
           continue;
         }
         case 5: {
-          if (tag !== 42) {
+          if (tag !== 40) {
+            break;
+          }
+
+          message.dhAlsoPublicKey = reader.bool();
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
             break;
           }
 
           message.ephemeralKey = reader.bytes();
           continue;
         }
-        case 6: {
-          if (tag !== 50) {
+        case 7: {
+          if (tag !== 58) {
             break;
           }
 
@@ -848,6 +817,7 @@ export const HelloSignedBytes: MessageFns<HelloSignedBytes> = {
         : [],
       cipherAlgorithm: isSet(object.cipherAlgorithm) ? cipherAlgorithmFromJSON(object.cipherAlgorithm) : 0,
       publicKey: isSet(object.publicKey) ? bytesFromBase64(object.publicKey) : new Uint8Array(0),
+      dhAlsoPublicKey: isSet(object.dhAlsoPublicKey) ? globalThis.Boolean(object.dhAlsoPublicKey) : false,
       ephemeralKey: isSet(object.ephemeralKey) ? bytesFromBase64(object.ephemeralKey) : new Uint8Array(0),
       additional: isSet(object.additional) ? bytesFromBase64(object.additional) : new Uint8Array(0),
     };
@@ -867,6 +837,9 @@ export const HelloSignedBytes: MessageFns<HelloSignedBytes> = {
     if (message.publicKey.length !== 0) {
       obj.publicKey = base64FromBytes(message.publicKey);
     }
+    if (message.dhAlsoPublicKey !== false) {
+      obj.dhAlsoPublicKey = message.dhAlsoPublicKey;
+    }
     if (message.ephemeralKey.length !== 0) {
       obj.ephemeralKey = base64FromBytes(message.ephemeralKey);
     }
@@ -885,6 +858,7 @@ export const HelloSignedBytes: MessageFns<HelloSignedBytes> = {
     message.supportCipher = object.supportCipher?.map((e) => e) || [];
     message.cipherAlgorithm = object.cipherAlgorithm ?? 0;
     message.publicKey = object.publicKey ?? new Uint8Array(0);
+    message.dhAlsoPublicKey = object.dhAlsoPublicKey ?? false;
     message.ephemeralKey = object.ephemeralKey ?? new Uint8Array(0);
     message.additional = object.additional ?? new Uint8Array(0);
     return message;

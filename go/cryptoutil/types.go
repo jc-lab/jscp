@@ -26,6 +26,11 @@ type PublicKey interface {
 	MarshalToProto() (*payloadpb.PublicKey, error)
 }
 
+type PrivateKey interface {
+	Key
+	GetPublic() PublicKey
+}
+
 type PublicAlgorithm interface {
 	GetKeyFormat() payloadpb.KeyFormat
 	UnmarshalPublicKey(input []byte) (PublicKey, error)
@@ -52,14 +57,17 @@ type DHAlgorithm interface {
 
 type DHPublicKey interface {
 	PublicKey
+	GetDHAlgorithm() DHAlgorithm
+	GetDHAlgorithmProto() payloadpb.DHAlgorithm
 	Marshal() []byte
 }
 
 type DHPrivateKey interface {
 	Key
 	GetPublic() PublicKey
-	
-	DHAlgorithm() DHAlgorithm
+
+	GetDHAlgorithm() DHAlgorithm
+	GetDHAlgorithmProto() payloadpb.DHAlgorithm
 	GetDHPublic() DHPublicKey
 	DH(peerKey DHPublicKey) ([]byte, error)
 }
@@ -67,9 +75,4 @@ type DHPrivateKey interface {
 type DHKeyPair struct {
 	Public  DHPublicKey
 	Private DHPrivateKey
-}
-
-type StaticPrivateKey interface {
-	Key
-	GetPublic() PublicKey
 }

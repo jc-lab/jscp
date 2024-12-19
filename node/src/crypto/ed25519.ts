@@ -1,38 +1,88 @@
 import * as ed25519 from '@stablelib/ed25519';
-import { Bytes, SignatureAlgorithm, SignatureKeyPair, SignaturePrivateKey, SignaturePublicKey } from './types';
+import {
+    Bytes,
+    PublicAlgorithm,
+    PublicKey,
+    SignaturePrivateKey,
+    SignaturePublicKey
+} from './types';
 import * as proto from '../proto';
+import { KeyFormat } from '../proto';
 
 export class Ed25519PrivateKey implements SignaturePrivateKey {
-    public readonly algorithm: Ed25519Algorithm = new Ed25519Algorithm();
+    private readonly key: Uint8Array;
 
     constructor(
-        private readonly key: Uint8Array,
+        key: Uint8Array,
     ) {
+        switch (key.length) {
+            case 32:
+                const keyPair = ed25519.generateKeyPairFromSeed(key);
+                this.key = keyPair.secretKey;
+                break
+            case 64:
+                this.key = key;
+                break
+            default:
+                throw new Error(`invalid key size: ${key.length}`);
+        }
+    }
+
+    isDHKey(): boolean {
+        return false;
+    }
+
+    isSignatureKey(): boolean {
+        return true;
+    }
+
+    algorithm(): PublicAlgorithm {
+        return ed25519Algorithm;
+    }
+
+    toPublic(): Ed25519PublicKey {
+        return new Ed25519PublicKey(
+            ed25519.extractPublicKeyFromSecretKey(this.key),
+        )
+    }
+
+    getPublic(): PublicKey {
+        return this.toPublic();
+    }
+
+    getSignaturePublicKey(): SignaturePublicKey {
+        return this.toPublic();
     }
 
     async sign(data: Bytes): Promise<Bytes> {
         return ed25519.sign(this.key, data);
     }
-
-    marshal(): Bytes {
-        return this.key;
-    }
 }
 
 export class Ed25519PublicKey implements SignaturePublicKey {
-    public readonly algorithm: Ed25519Algorithm = new Ed25519Algorithm();
-
     constructor(public readonly key: Uint8Array) {
+    }
+
+    isDHKey(): boolean {
+        return false;
+    }
+
+    isSignatureKey(): boolean {
+        return true;
+    }
+
+    algorithm(): PublicAlgorithm {
+        return ed25519Algorithm;
     }
 
     async verify(data: Bytes, signature: Bytes): Promise<boolean> {
         return ed25519.verify(this.key, data, signature);
     }
 
-    marshalToProto(): proto.SignaturePublicKey {
+    marshalToProto(): proto.PublicKey {
         return {
-            algorithm: this.algorithm.type,
-            data: this.key
+            format: KeyFormat.KeyFormatEd25519,
+            data: this.key,
         };
     }
 
@@ -41,10 +91,19 @@ export class Ed25519PublicKey implements SignaturePublicKey {
     }
 }
 
-export class Ed25519Algorithm implements SignatureAlgorithm {
-    public readonly type: proto.SignatureAlgorithm = proto.SignatureAlgorithm.SignatureEd25519;
+export class Ed25519Algorithm implements PublicAlgorithm {
+    getKeyFormat(): proto.KeyFormat {
+        return proto.KeyFormat.KeyFormatEd25519;
+    }
 
-    generate(): SignatureKeyPair {
+    async unmarshalPublicKey(input: Uint8Array): Promise<PublicKey> {
+        return new Ed25519PublicKey(input);
+    }
+
+    generate(): {
+        private: Ed25519PrivateKey,
+        public: Ed25519PublicKey,
+    } {
         const keyPair = ed25519.generateKeyPair();
 
         return {
@@ -52,8 +111,6 @@ export class Ed25519Algorithm implements SignatureAlgorithm {
             public: new Ed25519PublicKey(keyPair.publicKey)
         };
     }
-
-    unmarshalPublicKey(input: Bytes): SignaturePublicKey {
-        return new Ed25519PublicKey(input);
-    }
 }
+
+export const ed25519Algorithm = new Ed25519Algorithm();

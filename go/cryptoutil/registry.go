@@ -14,7 +14,7 @@ func GetCipherAlgorithm(algorithm payloadpb.CipherAlgorithm) (CipherAlgorithm, e
 	}
 }
 
-func GetPublicAlgorithm(keyFormat payloadpb.KeyFormat) (PublicAlgorithm, error) {
+func GetPublicAlgorithm(keyFormat payloadpb.KeyFormat, isDHKey bool) (PublicAlgorithm, error) {
 	switch keyFormat {
 	case payloadpb.KeyFormat_KeyFormatEd25519:
 		return &ed25519Algorithm, nil
@@ -22,6 +22,16 @@ func GetPublicAlgorithm(keyFormat payloadpb.KeyFormat) (PublicAlgorithm, error) 
 		return &x509Algorithm, nil
 	case payloadpb.KeyFormat_KeyFormatX25519:
 		return &x25519Algorithm, nil
+	case payloadpb.KeyFormat_KeyFormatSubjectPublicKeyInfo:
+		if isDHKey {
+			return &ECCAlgorithm{
+				keyUsage: KeyUsageDH,
+			}, nil
+		} else {
+			return &ECCAlgorithm{
+				keyUsage: KeyUsageSignature,
+			}, nil
+		}
 	default:
 		return nil, fmt.Errorf("invalid key format: %v", keyFormat)
 	}

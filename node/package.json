@@ -1,6 +1,6 @@
 {
   "name": "@jclab/jscp",
-  "version": "1.0.0",
+  "version": "0.0.1-rc3",
   "license": "Apache-2.0",
   "scripts": {
     "lint:fix": "eslint --fix ./src/**/*.ts",
@@ -43,12 +43,13 @@
     "ts-jest": "^29.2.5",
     "ts-proto": "^2.2.5",
     "tslib": "^2.8.0",
+    "tsx": "^4.19.2",
     "typescript": "~5.1.6",
     "typescript-eslint": "^8.8.1"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.2.0",
-    "@msgpack/msgpack": "^3.0.0-beta2",
+    "@noble/curves": "^1.7.0",
     "@stablelib/aes": "^2.0.0",
     "@stablelib/ed25519": "^2.0.1",
     "@stablelib/gcm": "^2.0.0",
@@ -57,8 +58,9 @@
     "@stablelib/hkdf": "^2.0.0",
     "@stablelib/sha256": "^2.0.0",
     "@stablelib/x25519": "^2.0.0",
+    "asn1js": "^3.0.5",
     "commons-crypto": "^0.3.6",
-    "hash.js": "^1.1.7",
+    "pkijs": "^3.2.4",
     "uint8arrays": "^5.1.0"
   },
   "author": "Joseph Lee <joseph@jc-lab.net>",

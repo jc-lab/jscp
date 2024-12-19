@@ -1,21 +1,44 @@
 import * as cc from 'commons-crypto';
 import { hash } from '@stablelib/sha256';
-import { Bytes, SignatureAlgorithm, SignatureKeyPair, SignaturePrivateKey, SignaturePublicKey } from './types';
+import {
+    Bytes,
+    PublicAlgorithm,
+    SignaturePrivateKey,
+    SignaturePublicKey,
+    PublicKey, PrivateKey,
+} from './types';
 import * as proto from '../proto';
 
-export class X509Certificate implements SignaturePublicKey {
-    public readonly algorithm: SignatureAlgorithm = new X509SignatureAlgorithm();
-
+export class X509Certificate implements PublicKey {
     constructor(
         public readonly key: cc.CertificateObject,
         public readonly raw: Bytes,
     ) {}
 
-    marshalToProto(): proto.SignaturePublicKey {
-        return {
-            algorithm: proto.SignatureAlgorithm.SignatureX509,
-            data: this.raw,
-        };
+    // Key
+
+    isDHKey(): boolean {
+        return false;
+    }
+
+    isSignatureKey(): boolean {
+        return true;
+    }
+
+    algorithm(): PublicAlgorithm {
+        return x509SignatureAlgorithm;
+    }
+
+    // PublicKey
+
+    marshalToProto(): proto.PublicKey {
+        return proto.PublicKey.create({
+            format: proto.KeyFormat.KeyFormatX509Certificate,
+            data: this.key.export({
+                type: 'spki',
+                format: 'der',
+            }),
+        });
     }
 
     async verify(data: Bytes, signature: Bytes): Promise<boolean> {
@@ -24,23 +47,46 @@ export class X509Certificate implements SignaturePublicKey {
 }
 
 export class X509Pkcs8PrivateKey implements SignaturePrivateKey {
-    public readonly algorithm: SignatureAlgorithm = new X509SignatureAlgorithm();
+    constructor(
+        public readonly certificate: X509Certificate,
+        public readonly key: cc.AsymmetricKeyObject,
+    ) {}
 
-    constructor(public readonly key: cc.AsymmetricKeyObject) {}
+    // Key
+
+    isDHKey(): boolean {
+        return false;
+    }
+
+    isSignatureKey(): boolean {
+        return true;
+    }
+
+    algorithm(): PublicAlgorithm {
+        return x509SignatureAlgorithm;
+    }
+
+    // SignaturePrivateKey
+
+    getPublic(): PublicKey {
+        return this.certificate;
+    }
+
+    getSignaturePublicKey(): SignaturePublicKey {
+        return this.certificate;
+    }
 
     async sign(data: Bytes): Promise<Bytes> {
         return this.key.sign('2.16.840.1.101.3.4.2.1', Buffer.from(hash(data)));
     }
 }
 
-export class X509SignatureAlgorithm implements SignatureAlgorithm {
-    public readonly type: proto.SignatureAlgorithm = proto.SignatureAlgorithm.SignatureX509;
-
-    generate(): SignatureKeyPair {
-        throw new Error('not supported');
+export class X509SignatureAlgorithm implements PublicAlgorithm {
+    getKeyFormat(): proto.KeyFormat {
+        return proto.KeyFormat.KeyFormatX509Certificate;
     }
 
-    unmarshalPublicKey(input: Bytes): SignaturePublicKey {
+    async unmarshalPublicKey(input: Uint8Array): Promise<X509Certificate> {
         const cert = cc.createCertificate({
             type: 'x509',
             key: Buffer.from(input),
@@ -49,3 +95,5 @@ export class X509SignatureAlgorithm implements SignatureAlgorithm {
         return new X509Certificate(cert, input);
     }
 }
+
+export const x509SignatureAlgorithm = new X509SignatureAlgorithm();

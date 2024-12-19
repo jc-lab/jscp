@@ -1,11 +1,12 @@
 import * as proto from '../proto';
-import { Cipher, DHAlgorithm, SignatureAlgorithm } from './types';
+import { CipherAlgorithm, DHAlgorithm, PublicAlgorithm } from './types';
 import { AesGcmCipher } from './aes';
-import { Ed25519Algorithm } from './ed25519';
-import { X509SignatureAlgorithm } from './x509';
-import { X25519Algorithm } from './dh';
+import { ed25519Algorithm, Ed25519Algorithm } from './ed25519';
+import { x509SignatureAlgorithm, X509SignatureAlgorithm } from './x509';
+import { ECCAlgorithm, KeyUsage } from './ecc';
+import { x25519Algorithm } from './x25519';
 
-export function getCipherAlgorithm(type: proto.CipherAlgorithm): Cipher {
+export function getCipherAlgorithm(type: proto.CipherAlgorithm): CipherAlgorithm {
     switch (type) {
         case proto.CipherAlgorithm.CipherAesGcm:
             return new AesGcmCipher();
@@ -15,21 +16,29 @@ export function getCipherAlgorithm(type: proto.CipherAlgorithm): Cipher {
     }
 }
 
-export function getSignatureAlgorithm(type: proto.SignatureAlgorithm): SignatureAlgorithm {
-    switch (type) {
-        case proto.SignatureAlgorithm.SignatureEd25519:
-            return new Ed25519Algorithm();
-        case proto.SignatureAlgorithm.SignatureX509:
-            return new X509SignatureAlgorithm();
+export function getPublicAlgorithm(keyFormat: proto.KeyFormat, isDHKey: boolean): PublicAlgorithm {
+    switch (keyFormat) {
+        case proto.KeyFormat.KeyFormatEd25519:
+            return ed25519Algorithm;
+        case proto.KeyFormat.KeyFormatX509Certificate:
+            return x509SignatureAlgorithm;
+        case proto.KeyFormat.KeyFormatX25519:
+            return x25519Algorithm;
+        case proto.KeyFormat.KeyFormatSubjectPublicKeyInfo:
+            if (isDHKey) {
+                return new ECCAlgorithm(KeyUsage.DH);
+            } else {
+                return new ECCAlgorithm(KeyUsage.Signature);
+            }
         default:
-            throw new Error(`unknown signature algorithm: ${type}`);
+            throw new Error(`unknown signature algorithm: ${keyFormat}`);
     }
 }
 
 export function getDHAlgorithm(type: proto.DHAlgorithm): DHAlgorithm {
     switch (type) {
         case proto.DHAlgorithm.DHX25519:
-            return new X25519Algorithm();
+            return x25519Algorithm;
 
         default:
             throw new Error(`unknown key type: ${type}`);
