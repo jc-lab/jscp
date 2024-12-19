@@ -162,20 +162,6 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 		return fmt.Errorf("failed to unmarshal HelloSignedBytes: %w", err)
 	}
 
-	// Check cipher algorithm compatibility
-	if !contains(s.availableCipherAlgorithms, hello.Signed.CipherAlgorithm) {
-		if retry {
-			return errors.New("any cipher not supported")
-		}
-
-		s.availableCipherAlgorithms = filterAlgorithms(s.availableCipherAlgorithms, hello.Signed.SupportCipher)
-		if len(s.availableCipherAlgorithms) == 0 {
-			return errors.New("any cipher not supported")
-		}
-
-		sendRetry = true
-	}
-
 	var remotePublicKey cryptoutil.PublicKey
 	if hello.Signed.PublicKey != nil {
 		// public : PublicKey
@@ -203,6 +189,20 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 				return errors.New("payload verification failed")
 			}
 		}
+	}
+
+	// Check cipher algorithm compatibility
+	if !contains(s.availableCipherAlgorithms, hello.Signed.CipherAlgorithm) {
+		if retry {
+			return errors.New("any cipher not supported")
+		}
+
+		s.availableCipherAlgorithms = filterAlgorithms(s.availableCipherAlgorithms, hello.Signed.SupportCipher)
+		if len(s.availableCipherAlgorithms) == 0 {
+			return errors.New("any cipher not supported")
+		}
+
+		sendRetry = true
 	}
 
 	// Check DH algorithm compatibility
