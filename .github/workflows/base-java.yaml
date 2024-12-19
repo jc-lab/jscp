@@ -1,9 +1,10 @@
 name: Test Base For Golang
 on:
   workflow_call:
-    upload:
-      type: boolean
-      required: false
+    inputs:
+      upload:
+        type: boolean
+        required: false
 
 defaults:
   run:  # use bash for all operating systems unless overridden
