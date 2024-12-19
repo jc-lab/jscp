@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 
 class ECCDHSpecificAlgorithmTest {
     val defaultAlgorithm = ECCDHSpecificAlgorithm(
-        ECNamedCurveTable.getParameterSpec("EC"),
+        ECNamedCurveTable.getParameterSpec("P-256"),
     )
 
     @Test
