@@ -1,0 +1,31 @@
+name: Test Base For Golang
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        type: string
+        required: true
+
+defaults:
+  run:  # use bash for all operating systems unless overridden
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+
+      - name: Set Environment Variables
+        run: |
+          echo "runner_arch=$(uname -m)" | tee -a $GITHUB_ENV
+          echo "package_version=${GITHUB_REF#refs/*/v}" | tee -a $GITHUB_ENV
+
+      - name: Test
+        run: |
+          go test ./...

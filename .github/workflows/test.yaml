@@ -1,0 +1,25 @@
+name: Test
+on:
+  push:
+    branches:
+      - '**'
+  pull_request: {}
+
+jobs:
+  node-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    uses: ./.github/workflows/base-node.yaml
+    with:
+      node-version: ${{ matrix.node-version }}
+      upload: false
+  go-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [20, 23]
+    uses: ./.github/workflows/base-go.yaml
+    with:
+      go-version: 1.22

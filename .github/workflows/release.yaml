@@ -1,0 +1,49 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    uses: ./.github/workflows/base.yaml
+    with:
+      node-version: 22
+      go-version: 1.22
+      upload: true
+  release:
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: 'yarn'
+        cache-dependency-path: node/yarn.lock
+
+    - name: Set Environment Variables
+      run: |
+        echo "runner_arch=$(uname -m)" | tee -a $GITHUB_ENV
+        echo "package_version=${GITHUB_REF#refs/*/v}" | tee -a $GITHUB_ENV
+
+    - name: Set version
+      run: node ./.ci/node-set-version.js --package-json node/package.json ${{ env.package_version }}
+
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: node-lib
+        path: node/lib/
+    - run: ls -alR node/lib/
+
+    - name: Publish
+      run: |
+        cd node
+        yarn config set npmAuthToken "${NPM_TOKEN}"
+        yarn npm publish --access=public
+      env:
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

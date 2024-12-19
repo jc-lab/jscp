@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package kr.jclab.jscp.payload;
+option java_multiple_files = true;
+option java_package = "kr.jclab.jscp.payload";
+option java_outer_classname = "JcspPayload";
+option go_package = "github.com/jc-lab/jcsp/go/payloadpb";
+
+// AEAD Cipher Algorithm
+enum CipherAlgorithm {
+  CipherUnknown = 0;
+  CipherAesGcm  = 1;
+}
+
+enum KeyFormat {
+  KeyFormatUnknown = 0; // or Specific
+  KeyFormatX509Certificate = 1;
+  KeyFormatSubjectPublicKeyInfo = 2;
+
+  KeyFormatEd25519 = 101;
+  KeyFormatX25519 = 201;
+}
+
+enum DHAlgorithm {
+  DHUnknown = 0;
+  DHECC = 1;
+  DHX25519 = 2;
+}
+
+message PublicKey {
+  KeyFormat format = 1;
+  bytes     data   = 2;
+}
+
+message DHPublicKey {
+  DHAlgorithm algorithm = 1;
+  bytes data = 2;
+}
+
+enum PayloadType {
+  PayloadUnknown = 0;
+  PayloadHello = 1;
+
+  // Requests a different algorithm to be used. SymmetricState must be reset.
+  PayloadHelloWithChangeAlgorithm = 2;
+
+  PayloadEncryptedMessage = 10;
+}
+
+message Payload {
+  PayloadType payload_type = 1;
+  bytes       data = 2;
+}
+
+message HelloSigned {
+  repeated DHAlgorithm     support_dh     = 1; // Support DH Algorithms
+  repeated CipherAlgorithm support_cipher = 2; // Support Cipher Algorithms
+  CipherAlgorithm          cipher_algorithm = 3;
+  PublicKey                public_key     = 4;     // hello_02: (SignatureKey) MixHash or
+  bool                     dh_also_public_key = 5; // hello_02: MixKey(public_key, ephemeral_key) (se, es)
+  DHPublicKey              ephemeral_key  = 6; // hello_04: MixHash or MixKey
+  bytes                    additional     = 7; // hello_05: EncryptAndMixHash
+}
+
+message HelloSignedBytes {
+  repeated DHAlgorithm     support_dh    = 1;
+  repeated CipherAlgorithm support_cipher = 2;
+  CipherAlgorithm          cipher_algorithm = 3;
+  bytes                    public_key    = 4;
+  bool                     dh_also_public_key = 5;
+  bytes                    ephemeral_key = 6; // DHPublicKey
+  bytes                    additional    = 7;
+}
+
+message Hello {
+  int32 version = 1;      // hello_01: MixHash(version as little-endian)
+  HelloSigned signed = 2; // marshaled HelloSigned
+  bytes signature = 3;    // optional signature. signed by Sender's static key
+}
+
+message HelloBytes {
+  int32 version = 1;
+  bytes signed  = 2;   // marshaled HelloSigned
+  bytes signature = 3; // hello_06: MixHash
+}
+
+message EncryptedMessage {
+  bytes data = 10;
+}

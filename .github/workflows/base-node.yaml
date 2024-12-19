@@ -1,0 +1,50 @@
+name: Build And Test Base For Node
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        required: true
+      upload:
+        type: boolean
+        required: false
+
+defaults:
+  run:  # use bash for all operating systems unless overridden
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'yarn'
+          cache-dependency-path: node/yarn.lock
+
+      - name: Set Environment Variables
+        run: |
+          echo "runner_arch=$(uname -m)" | tee -a $GITHUB_ENV
+          echo "package_version=${GITHUB_REF#refs/*/v}" | tee -a $GITHUB_ENV
+
+      - name: Set version
+        run: node ./.ci/node-set-version.js --package-json node/package.json ${{ env.package_version }}
+
+      - name: Build And Test
+        run: |
+          cd node
+          yarn install
+          yarn test
+          yarn build
+
+      - uses: actions/upload-artifact@v3
+        if: ${{ inputs.upload }}
+        with:
+          name: node-lib
+          path: |
+            node/lib/**
