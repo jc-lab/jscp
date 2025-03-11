@@ -22,6 +22,7 @@ type Session struct {
 	initiator bool
 	sendFunc  SendFunc
 	recvCh    chan []byte
+	closed    bool
 
 	staticKeyPair cryptoutil.PrivateKey
 
@@ -91,6 +92,12 @@ func (s *Session) HandleReceive(payload *payloadpb.Payload) error {
 	default:
 		return fmt.Errorf("invalid payload: %+v", payload.PayloadType)
 	}
+}
+
+func (s *Session) Close() error {
+	s.closed = true
+	close(s.recvCh)
+	return nil
 }
 
 func (s *Session) Handshake(additionalData []byte) (chan *HandshakeResult, error) {
@@ -346,7 +353,11 @@ func (s *Session) handleEncryptedMessage(payloadRaw []byte) error {
 		return err
 	}
 
-	s.recvCh <- encryptedMessage.Data
+	select {
+	case s.recvCh <- encryptedMessage.Data:
+	default:
+		return errors.New("already closed")
+	}
 
 	return nil
 }
