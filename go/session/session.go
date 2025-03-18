@@ -7,6 +7,7 @@ import (
 	"github.com/jc-lab/jscp/go/sessionstate"
 	"github.com/pkg/errors"
 	"io"
+	"sync"
 )
 
 type HandshakeResult struct {
@@ -21,8 +22,10 @@ type SendFunc func(payload *payloadpb.Payload)
 type Session struct {
 	initiator bool
 	sendFunc  SendFunc
-	recvCh    chan []byte
-	closed    bool
+
+	mutex  sync.RWMutex
+	recvCh chan []byte
+	closed bool
 
 	staticKeyPair cryptoutil.PrivateKey
 
@@ -98,8 +101,12 @@ func (s *Session) Close() error {
 	if s.closed {
 		return nil
 	}
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.closed = true
 	close(s.recvCh)
+
 	return nil
 }
 
@@ -356,12 +363,12 @@ func (s *Session) handleEncryptedMessage(payloadRaw []byte) error {
 		return err
 	}
 
-	select {
-	case s.recvCh <- encryptedMessage.Data:
-	default:
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if s.closed {
 		return errors.New("already closed")
 	}
-
+	s.recvCh <- encryptedMessage.Data
 	return nil
 }
 
