@@ -47,7 +47,7 @@ class Ed25519PrivateKey(private val key: Ed25519PrivateKeyParameters) : Signatur
     }
 }
 
-class Ed25519PublicKey(private val key: Ed25519PublicKeyParameters) : SignaturePublicKey {
+class Ed25519PublicKey(val key: Ed25519PublicKeyParameters) : SignaturePublicKey {
     override fun isDHKey(): Boolean = false
 
     override fun isSignatureKey(): Boolean = true
