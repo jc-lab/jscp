@@ -42,7 +42,7 @@ jobs:
           yarn test
           yarn build
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: ${{ inputs.upload }}
         with:
           name: node-lib

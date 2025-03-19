@@ -29,7 +29,7 @@ jobs:
           chmod +x gradlew
           ./gradlew build test
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: ${{ inputs.upload }}
         with:
           name: java-build
