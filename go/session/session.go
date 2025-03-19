@@ -105,6 +105,9 @@ func (s *Session) Close() error {
 	defer s.mutex.Unlock()
 
 	s.closed = true
+	s.emitHandshakeResultWithoutLock(&HandshakeResult{
+		Error: errors.New("connection closed"),
+	})
 	close(s.recvCh)
 
 	return nil
@@ -118,7 +121,7 @@ func (s *Session) Handshake(additionalData []byte) (chan *HandshakeResult, error
 			err := s.sendHello(false)
 			if err != nil {
 				s.handshakeResult.Error = err
-				s.emitHandshakeResult()
+				s.emitHandshakeResult(s.handshakeResult)
 			}
 		}()
 	}
@@ -154,10 +157,18 @@ func (s *Session) Read() ([]byte, error) {
 	return data, nil
 }
 
-func (s *Session) emitHandshakeResult() {
-	s.handshakeResult.RemotePublicKey = s.remotePublicKey
-	s.handshakeCh <- s.handshakeResult
-	close(s.handshakeCh)
+func (s *Session) emitHandshakeResult(result *HandshakeResult) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.emitHandshakeResultWithoutLock(result)
+}
+
+func (s *Session) emitHandshakeResultWithoutLock(result *HandshakeResult) {
+	if s.handshakeCh != nil {
+		s.handshakeCh <- result
+		close(s.handshakeCh)
+		s.handshakeCh = nil
+	}
 }
 
 func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
@@ -342,7 +353,8 @@ func (s *Session) handleHello(payloadRaw []byte, retry bool) error {
 	}
 
 	if handshakeFinish {
-		s.emitHandshakeResult()
+		s.handshakeResult.RemotePublicKey = s.remotePublicKey
+		s.emitHandshakeResult(s.handshakeResult)
 	} else {
 		if err := s.sendHello(false); err != nil {
 			return fmt.Errorf("failed to send hello: %w", err)
@@ -498,7 +510,8 @@ func (s *Session) sendHello(changeAlgorithm bool) error {
 	}
 
 	if handshakeFinish {
-		s.emitHandshakeResult()
+		s.handshakeResult.RemotePublicKey = s.remotePublicKey
+		s.emitHandshakeResult(s.handshakeResult)
 	}
 
 	payloadType := payloadpb.PayloadType_PayloadHello
